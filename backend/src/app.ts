@@ -44,6 +44,10 @@ export function createApp() {
 
   // API v1
   const v1 = express.Router();
+  // Rutas públicas / con auth propia van PRIMERO: si se montan después de un router
+  // que aplica requireAuth a nivel de router, ese middleware las intercepta con 401.
+  v1.use(fxRoutes); // /fx (TC del BCCR) — público
+  v1.use(jobsRoutes); // /jobs/reminders — protegido por CRON_SECRET, no por JWT
   v1.use(authRoutes);
   v1.use(accountsRoutes);
   v1.use(movementsRoutes);
@@ -54,8 +58,6 @@ export function createApp() {
   v1.use(assetsRoutes);
   v1.use(reportsRoutes);
   v1.use(placeholderRoutes); // solo /integrations (Fase 7)
-  v1.use(jobsRoutes); // /jobs/reminders (invocado por Vercel Cron)
-  v1.use(fxRoutes); // /fx (tipo de cambio actual del BCCR)
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);
