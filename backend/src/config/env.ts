@@ -29,6 +29,9 @@ const schema = z.object({
   // automáticamente como `Authorization: Bearer <CRON_SECRET>`. Si no se define,
   // el endpoint queda abierto (solo recomendable en local).
   CRON_SECRET: z.string().optional(),
+
+  // TC (colones por USD) de respaldo si el BCCR no responde al crear un movimiento.
+  FX_FALLBACK: z.coerce.number().default(505),
 });
 
 const parsed = schema.safeParse(process.env);

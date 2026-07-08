@@ -17,6 +17,7 @@ import { assetsRoutes } from '@/modules/assets/assets.routes';
 import { reportsRoutes } from '@/modules/reports/reports.routes';
 import { placeholderRoutes } from '@/modules/placeholders.routes';
 import { jobsRoutes } from '@/modules/jobs/jobs.routes';
+import { fxRoutes } from '@/modules/fx/fx.routes';
 
 export function createApp() {
   const app = express();
@@ -54,6 +55,7 @@ export function createApp() {
   v1.use(reportsRoutes);
   v1.use(placeholderRoutes); // solo /integrations (Fase 7)
   v1.use(jobsRoutes); // /jobs/reminders (invocado por Vercel Cron)
+  v1.use(fxRoutes); // /fx (tipo de cambio actual del BCCR)
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

@@ -6,7 +6,8 @@ export const listMovementsQuery = z.object({
 
 export const createMovementSchema = z.object({
   type: z.enum(['income', 'expense']),
-  amount: z.number().nonnegative(),
+  amount: z.number().nonnegative(), // en la moneda de `currency`
+  currency: z.enum(['USD', 'CRC']).default('USD'),
   description: z.string().min(1),
   occurredOn: z.string().optional(), // ISO; si falta, se usa hoy
   scope: z.enum(['shared', 'individual']),

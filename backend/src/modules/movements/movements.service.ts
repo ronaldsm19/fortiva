@@ -4,6 +4,8 @@ import {
   centsToUsd, fmtDayMon, MESES, ownerToLabel, scopeToLabel, usdToCents, SAVINGS_CATEGORIES,
 } from '@/lib/present';
 import { AppError } from '@/lib/AppError';
+import { getFxRates } from '@/lib/bccrFx';
+import { env } from '@/config/env';
 import type { CreateMovementInput, UpdateMovementInput } from './movements.schemas';
 
 type MovementWithCat = Prisma.MovementGetPayload<{ include: { category: true } }>;
@@ -14,12 +16,38 @@ function mapMovement(m: MovementWithCat) {
     date: fmtDayMon(m.occurredOn),
     cat: m.category?.name ?? '—',
     type: m.type,
-    amount: centsToUsd(m.amountCents),
+    amount: centsToUsd(m.amountCents), // USD
+    // colones: si es un movimiento previo sin valor, se deriva con el TC de respaldo.
+    amountCrc: m.amountCrc ?? Math.round(centsToUsd(m.amountCents) * env.FX_FALLBACK),
+    currency: m.currency ?? 'USD', // moneda en que se ingresó (previos: USD)
+    fxBuy: m.fxBuy ?? null,
+    fxSell: m.fxSell ?? null,
+    fxDate: m.fxDate ? m.fxDate.toISOString() : null,
     desc: m.description,
     scope: scopeToLabel[m.scope],
     owner: ownerToLabel[m.ownerKey],
     icon: m.icon,
   };
+}
+
+/**
+ * A partir del monto ingresado (en `currency`), calcula el valor en USD (centavos) y en
+ * colones (enteros) con el TC: **compra para ingresos, venta para gastos**.
+ */
+function computeAmounts(
+  amount: number,
+  currency: 'USD' | 'CRC',
+  type: 'income' | 'expense',
+  fxBuy: number,
+  fxSell: number,
+): { amountCents: number; amountCrc: number } {
+  const rate = type === 'income' ? fxBuy : fxSell;
+  if (currency === 'CRC') {
+    const crc = Math.round(amount);
+    const usd = rate > 0 ? crc / rate : 0;
+    return { amountCents: usdToCents(usd), amountCrc: crc };
+  }
+  return { amountCents: usdToCents(amount), amountCrc: Math.round(amount * rate) };
 }
 
 type Range = { gte: Date; lt: Date } | undefined;
@@ -41,12 +69,20 @@ export const movementsService = {
     const category = input.categoryName
       ? await prisma.category.findFirst({ where: { accountId, name: input.categoryName } })
       : null;
+    const fx = await getFxRates();
+    const currency = input.currency ?? 'USD';
+    const { amountCents, amountCrc } = computeAmounts(input.amount, currency, input.type, fx.buy, fx.sell);
     const m = await prisma.movement.create({
       data: {
         accountId,
         categoryId: category?.id ?? null,
         type: input.type,
-        amountCents: usdToCents(input.amount),
+        amountCents,
+        amountCrc,
+        currency,
+        fxBuy: fx.buy,
+        fxSell: fx.sell,
+        fxDate: fx.date,
         description: input.description,
         occurredOn: input.occurredOn ? new Date(input.occurredOn) : new Date(),
         scope: input.scope,
@@ -62,12 +98,12 @@ export const movementsService = {
     const found = await prisma.movement.findFirst({ where: { id, accountId } });
     if (!found) throw AppError.notFound('Movimiento no encontrado');
     const data: Prisma.MovementUncheckedUpdateInput = {};
-    if (input.type !== undefined) data.type = input.type;
-    if (input.amount !== undefined) data.amountCents = usdToCents(input.amount);
     if (input.description !== undefined) data.description = input.description;
     if (input.occurredOn !== undefined) data.occurredOn = new Date(input.occurredOn);
     if (input.scope !== undefined) data.scope = input.scope;
     if (input.ownerKey !== undefined) data.ownerKey = input.ownerKey;
+    if (input.type !== undefined) data.type = input.type;
+    if (input.currency !== undefined) data.currency = input.currency;
     if (input.icon !== undefined) data.icon = input.icon;
     if (input.categoryName !== undefined) {
       const cat = input.categoryName
@@ -75,6 +111,29 @@ export const movementsService = {
         : null;
       data.categoryId = cat?.id ?? null;
     }
+
+    // Recalcula montos si cambió monto/moneda/tipo. Usa el TC ya guardado (histórico);
+    // si es un movimiento viejo sin TC, toma el actual y lo congela.
+    if (input.amount !== undefined || input.currency !== undefined || input.type !== undefined) {
+      const type = input.type ?? found.type;
+      const currency = (input.currency ?? found.currency ?? 'USD') as 'USD' | 'CRC';
+      let buy = found.fxBuy;
+      let sell = found.fxSell;
+      if (buy == null || sell == null) {
+        const fx = await getFxRates();
+        buy = fx.buy;
+        sell = fx.sell;
+        data.fxBuy = fx.buy;
+        data.fxSell = fx.sell;
+        data.fxDate = fx.date;
+      }
+      const amountInCurrency =
+        input.amount ?? (currency === 'CRC' ? (found.amountCrc ?? 0) : centsToUsd(found.amountCents));
+      const { amountCents, amountCrc } = computeAmounts(amountInCurrency, currency, type, buy, sell);
+      data.amountCents = amountCents;
+      data.amountCrc = amountCrc;
+    }
+
     const m = await prisma.movement.update({ where: { id }, data, include: { category: true } });
     return mapMovement(m);
   },

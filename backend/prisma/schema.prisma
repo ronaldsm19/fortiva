@@ -189,7 +189,12 @@ model Movement {
   categoryId  String?      @map("category_id") @db.ObjectId
   userId      String?      @map("user_id") @db.ObjectId
   type        MovementType
-  amountCents Int          @map("amount_cents")
+  amountCents Int          @map("amount_cents") // valor en USD (centavos), canónico
+  amountCrc   Int?         @map("amount_crc") // valor en colones (enteros); null en movimientos previos
+  currency    Currency?    @map("currency") // moneda en la que se ingresó; null en movimientos previos
+  fxBuy       Float?       @map("fx_buy") // TC compra congelado al crear
+  fxSell      Float?       @map("fx_sell") // TC venta congelado al crear
+  fxDate      DateTime?    @map("fx_date") // fecha/hora del TC usado
   description String
   occurredOn  DateTime     @map("occurred_on")
   scope       Scope        @default(shared)
