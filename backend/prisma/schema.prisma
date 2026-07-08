@@ -1,0 +1,279 @@
+// Fortiva — Prisma schema (MongoDB)
+// Multi-tenant por accountId. Montos en centavos USD (Int). IDs ObjectId.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+enum Plan {
+  personal
+  hogar
+  patrimonio
+}
+
+enum AccountStatus {
+  trialing
+  active
+  past_due
+  canceled
+}
+
+enum SplitMode {
+  fifty // 50/50
+  custom
+  salary // proporcional al salario de cada persona
+}
+
+enum Currency {
+  USD
+  CRC
+}
+
+enum UserRole {
+  admin
+  member
+}
+
+enum PersonKey {
+  ana
+  luis
+}
+
+enum CategoryKind {
+  system
+  custom
+}
+
+enum MovementType {
+  income
+  expense
+}
+
+enum Scope {
+  shared
+  individual
+}
+
+enum OwnerKey {
+  ana
+  luis
+  pareja
+}
+
+enum PaymentMethod {
+  transfer
+  debit
+  cash
+  sinpe
+}
+
+enum ReminderStatus {
+  pending
+  paid
+}
+
+// ---------- Tenant: la cuenta = el "hogar" ----------
+model Account {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  plan         Plan          @default(personal)
+  coupleMode   Boolean       @default(false) @map("couple_mode")
+  splitMode    SplitMode     @default(fifty) @map("split_mode")
+  splitP1Pct   Int           @default(50) @map("split_p1_pct")
+  currencyPref Currency      @default(USD) @map("currency_pref")
+  trialEndsAt  DateTime?     @map("trial_ends_at")
+  status       AccountStatus @default(trialing)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  users       User[]
+  invitations Invitation[]
+  categories  Category[]
+  movements   Movement[]
+  debts       Debt[]
+  payments    DebtPayment[]
+  reminders   Reminder[]
+  assets      Asset[]
+
+  @@map("accounts")
+}
+
+model User {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  accountId    String     @map("account_id") @db.ObjectId
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  fullName     String     @map("full_name")
+  nationalId   String?    @map("national_id")
+  phone        String?
+  role         UserRole   @default(admin)
+  personKey    PersonKey? @map("person_key")
+  mustChangePw Boolean    @default(false) @map("must_change_pw")
+  lastLoginAt  DateTime?  @map("last_login_at")
+  resetTokenHash      String?   @map("reset_token_hash")
+  resetTokenExpiresAt DateTime? @map("reset_token_expires_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+  movements     Movement[]
+
+  @@index([accountId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @map("user_id") @db.ObjectId
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model Invitation {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  accountId  String    @map("account_id") @db.ObjectId
+  email      String
+  token      String    @unique
+  role       UserRole  @default(member)
+  acceptedAt DateTime? @map("accepted_at")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("invitations")
+}
+
+model Category {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  accountId   String       @map("account_id") @db.ObjectId
+  name        String
+  icon        String
+  color       String
+  kind        CategoryKind @default(custom)
+  budgetCents Int?         @map("budget_cents")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  account   Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  movements Movement[]
+
+  @@unique([accountId, name])
+  @@index([accountId])
+  @@map("categories")
+}
+
+model Movement {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  accountId   String       @map("account_id") @db.ObjectId
+  categoryId  String?      @map("category_id") @db.ObjectId
+  userId      String?      @map("user_id") @db.ObjectId
+  type        MovementType
+  amountCents Int          @map("amount_cents")
+  description String
+  occurredOn  DateTime     @map("occurred_on")
+  scope       Scope        @default(shared)
+  ownerKey    OwnerKey     @default(pareja) @map("owner_key")
+  icon        String       @default("wallet")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  account  Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, occurredOn])
+  @@map("movements")
+}
+
+model Debt {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  accountId    String    @map("account_id") @db.ObjectId
+  name         String
+  issuer       String
+  ownerKey     OwnerKey  @default(pareja) @map("owner_key")
+  totalCents   Int       @map("total_cents")
+  paidCents    Int       @default(0) @map("paid_cents")
+  monthlyCents Int       @map("monthly_cents")
+  rate         String?
+  dueDate      DateTime? @map("due_date")
+  icon         String    @default("credit-card")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  account  Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  payments DebtPayment[]
+
+  @@index([accountId])
+  @@map("debts")
+}
+
+model DebtPayment {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  debtId      String        @map("debt_id") @db.ObjectId
+  accountId   String        @map("account_id") @db.ObjectId
+  amountCents Int           @map("amount_cents")
+  paidOn      DateTime      @map("paid_on")
+  method      PaymentMethod @default(transfer)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  debt    Debt    @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([debtId])
+  @@index([accountId])
+  @@map("debt_payments")
+}
+
+model Reminder {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  accountId    String         @map("account_id") @db.ObjectId
+  name         String
+  issuer       String
+  amountCents  Int            @map("amount_cents")
+  dueDate      DateTime       @map("due_date")
+  status         ReminderStatus @default(pending)
+  emailEnabled   Boolean        @default(true) @map("email_enabled")
+  lastNotifiedAt DateTime?      @map("last_notified_at")
+  icon           String         @default("bell")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("reminders")
+}
+
+model Asset {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  accountId   String   @map("account_id") @db.ObjectId
+  name        String
+  amountCents Int      @map("amount_cents")
+  icon        String   @default("banknote")
+  color       String
+  isAsset     Boolean  @default(true) @map("is_asset")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("assets")
+}

@@ -1,0 +1,33 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Builds
+dist/
+dist-ssr/
+**/dist/
+build/
+
+# Variables de entorno (NUNCA subir secretos)
+.env
+.env.*
+!.env.example
+*.local
+
+# Prisma / generados
+**/.prisma/
+
+# Logs y OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.tsbuildinfo
+
+# Artefactos de compilación de configs TS
+frontend/vite.config.js
+frontend/vite.config.d.ts

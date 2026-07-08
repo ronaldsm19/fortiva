@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Design tokens — tema claro (default) y oscuro (data-theme)
+   ============================================================ */
+:root {
+  --bg: #faf7f2;
+  --bg-2: #f2ece3;
+  --surface: #ffffff;
+  --surface-2: #fbf8f3;
+  --text: #211e1a;
+  --text-2: #6b6459;
+  --text-3: #9a9184;
+  --border: #eae3d8;
+  --border-strong: #ddd4c6;
+  --accent: #2456c9;
+  --accent-weak: #eaf0ff;
+  --accent-strong: #183f9c;
+  --accent-ink: #ffffff;
+  --pos: #2e8b6b;
+  --pos-weak: #e4f3ec;
+  --neg: #c0503b;
+  --neg-weak: #f8e9e3;
+  --gold: #a9822f;
+}
+
+[data-theme='dark'] {
+  --bg: #131210;
+  --bg-2: #1a1815;
+  --surface: #1e1b17;
+  --surface-2: #242019;
+  --text: #f4f0e8;
+  --text-2: #a9a093;
+  --text-3: #726b5f;
+  --border: #2d2921;
+  --border-strong: #3a342b;
+  --accent: #5b8cff;
+  --accent-weak: #1c2740;
+  --accent-strong: #89a9ff;
+  --accent-ink: #0b1220;
+  --pos: #57c79a;
+  --pos-weak: #122720;
+  --neg: #e0806b;
+  --neg-weak: #2c1a14;
+  --gold: #d6b36a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Manrope', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* Números tabulares para montos */
+.fnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Keyframes (equivalentes disponibles también via Framer Motion)
+   ============================================================ */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-fadeUp {
+  animation: fadeUp 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.animate-floaty {
+  animation: floaty 7s ease-in-out infinite;
+}
+
+/* Scrollbar sutil */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 100px;
+}
+
+/* Range input (slider modo pareja) */
+input[type='range'] {
+  accent-color: var(--accent);
+}
