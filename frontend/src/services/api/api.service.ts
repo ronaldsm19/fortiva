@@ -59,6 +59,8 @@ function movementPayload(input: Partial<Omit<Movement, 'id'>>) {
   if (input.owner !== undefined) p.ownerKey = input.owner.toLowerCase();
   if (input.cat !== undefined) p.categoryName = input.cat;
   if (input.icon !== undefined) p.icon = input.icon;
+  if (input.currency !== undefined) p.currency = input.currency;
+  // `amount` va en la moneda de `currency`; el backend calcula USD y colones con el TC.
   // `date` puede venir como ISO (input date) → occurredOn
   if (input.date && /^\d{4}-\d{2}-\d{2}/.test(input.date)) p.occurredOn = input.date;
   return p;
@@ -143,4 +145,6 @@ export const apiService: FortivaService = {
   },
 
   getPricing: () => import('@/data/mock').then((m) => m.pricingPlans),
+
+  getFxRate: () => http('/fx'),
 };

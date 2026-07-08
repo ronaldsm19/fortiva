@@ -14,11 +14,24 @@ export interface Movement {
   date: string; // "05 Jul"
   cat: string;
   type: MovementType;
-  amount: number; // USD
+  amount: number; // USD (canónico). En el payload de creación = monto en `currency`.
+  amountCrc?: number; // valor en colones (congelado al crear)
+  currency?: 'USD' | 'CRC'; // moneda en la que se ingresó
+  fxBuy?: number | null; // TC compra congelado
+  fxSell?: number | null; // TC venta congelado
+  fxDate?: string | null; // fecha/hora del TC (ISO)
   desc: string;
   scope: Scope;
   owner: OwnerKey;
   icon: string;
+}
+
+/** Tipo de cambio actual (colones por USD) — BCCR / ARI Casa de Cambio. */
+export interface FxRate {
+  buy: number; // compra
+  sell: number; // venta
+  date: string; // ISO
+  source?: string;
 }
 
 export interface Category {

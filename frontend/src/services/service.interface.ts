@@ -1,5 +1,5 @@
 import type {
-  Asset, Category, CoupleConfig, Debt, Kpi, Movement,
+  Asset, Category, CoupleConfig, Debt, FxRate, Kpi, Movement,
   MonthPoint, PricingPlan, Reminder, TopCategory,
 } from './types';
 
@@ -58,4 +58,7 @@ export interface FortivaService {
 
   // Landing
   getPricing(): Promise<PricingPlan[]>;
+
+  // Tipo de cambio actual (BCCR / ARI Casa de Cambio)
+  getFxRate(): Promise<FxRate>;
 }

@@ -9,6 +9,7 @@ import { ArrowLeftRight } from 'lucide-react';
 import { MovementModal } from '@/modals/MovementModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useCurrency } from '@/context/CurrencyContext';
+import { money, crcOf } from '@/lib/format';
 import { useHousehold } from '@/context/HouseholdContext';
 import { useMonth } from '@/context/MonthContext';
 import { service } from '@/services';
@@ -28,7 +29,7 @@ const filterOwner: Record<Exclude<Filter, 'todos'>, OwnerKey> = {
 };
 
 export function Movimientos() {
-  const { format } = useCurrency();
+  const { rate } = useCurrency();
   const { ownerLabel } = useHousehold();
   const labelFor = (key: Filter) =>
     key === 'ana' ? ownerLabel('Ana') : key === 'luis' ? ownerLabel('Luis') : key === 'pareja' ? 'Pareja' : 'Todos';
@@ -44,13 +45,13 @@ export function Movimientos() {
   };
   useEffect(load, [filter, monthIdx, year]);
 
-  const summary = useMemo(() => {
-    if (filter === 'todos') return null;
-    const owner = filterOwner[filter];
-    const ins = movements.filter((m) => m.type === 'income').reduce((a, m) => a + m.amount, 0);
-    const outs = movements.filter((m) => m.type === 'expense').reduce((a, m) => a + m.amount, 0);
-    return { owner, ins, outs };
-  }, [filter, movements]);
+  // Totales en colones (suma real usando el TC congelado de cada movimiento).
+  const totals = useMemo(() => {
+    const ins = movements.filter((m) => m.type === 'income').reduce((a, m) => a + crcOf(m, rate), 0);
+    const outs = movements.filter((m) => m.type === 'expense').reduce((a, m) => a + crcOf(m, rate), 0);
+    return { ins, outs, balance: ins - outs };
+  }, [movements, rate]);
+  const person = filter === 'todos' ? null : filterOwner[filter];
 
   return (
     <div className="flex flex-col gap-5">
@@ -79,15 +80,15 @@ export function Movimientos() {
         </Button>
       </div>
 
-      {summary && (
+      {person && (
         <Card>
           <div className="flex items-center gap-4">
-            <OwnerAvatar owner={summary.owner} size={44} />
+            <OwnerAvatar owner={person} size={44} />
             <div>
-              <div className="text-[14px] font-bold">Resumen de {ownerLabel(summary.owner)}</div>
+              <div className="text-[14px] font-bold">Resumen de {ownerLabel(person)}</div>
               <div className="mt-0.5 flex gap-4 text-[13px]">
-                <span className="fnum font-semibold text-pos">Ingresos {format(summary.ins)}</span>
-                <span className="fnum font-semibold text-text-2">Gastos {format(summary.outs)}</span>
+                <span className="fnum font-semibold text-pos">Ingresos {money(totals.ins, 'CRC')}</span>
+                <span className="fnum font-semibold text-text-2">Gastos {money(totals.outs, 'CRC')}</span>
               </div>
             </div>
           </div>
@@ -112,6 +113,25 @@ export function Movimientos() {
         ))}
         {movements.length === 0 && (
           <EmptyState icon={ArrowLeftRight} title="Sin movimientos este mes" text="Agrega tu primer ingreso o gasto." />
+        )}
+        {movements.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 border-t border-border pt-3 text-[13px]">
+            <span className="mr-auto text-[12px] font-semibold uppercase tracking-wide text-text-3">
+              Total en colones
+            </span>
+            <span className="fnum text-text-2">
+              Ingresos <b className="text-pos">{money(totals.ins, 'CRC')}</b>
+            </span>
+            <span className="fnum text-text-2">
+              Gastos <b className="text-text">{money(totals.outs, 'CRC')}</b>
+            </span>
+            <span className="fnum text-text-2">
+              Balance{' '}
+              <b style={{ color: totals.balance >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
+                {money(totals.balance, 'CRC')}
+              </b>
+            </span>
+          </div>
         )}
       </Card>
 

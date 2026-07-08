@@ -8,6 +8,9 @@ const delay = <T>(v: T, ms = 120): Promise<T> =>
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
+/** TC mock (colones por USD) — compra ingresos, venta gastos. */
+const MOCK_FX = { buy: 451.6, sell: 457.47 };
+
 // Estado en memoria (mutable) para simular CRUD durante la sesión.
 let movements = [...mock.movements];
 let system = [...mock.systemCategories];
@@ -36,12 +39,31 @@ export const mockService: FortivaService = {
     delay(owner === 'todos' ? movements : movements.filter((m) => m.owner === ownerFilterKey[owner])),
 
   createMovement: (input) => {
-    const m: Movement = { ...input, id: uid() };
+    const cur = input.currency ?? 'USD';
+    const rate = input.type === 'income' ? MOCK_FX.buy : MOCK_FX.sell;
+    const amountUsd = cur === 'CRC' ? input.amount / rate : input.amount;
+    const amountCrc = cur === 'CRC' ? Math.round(input.amount) : Math.round(input.amount * rate);
+    const m: Movement = {
+      ...input, id: uid(), currency: cur, amount: amountUsd, amountCrc,
+      fxBuy: MOCK_FX.buy, fxSell: MOCK_FX.sell, fxDate: new Date().toISOString(),
+    };
     movements = [m, ...movements];
     return delay(m);
   },
   updateMovement: (id, input) => {
-    movements = movements.map((m) => (m.id === id ? { ...m, ...input } : m));
+    movements = movements.map((m) => {
+      if (m.id !== id) return m;
+      const merged: Movement = { ...m, ...input };
+      // recomputa USD/colones si cambió monto, moneda o tipo (igual que el backend)
+      if (input.amount !== undefined || input.currency !== undefined || input.type !== undefined) {
+        const cur = merged.currency ?? 'USD';
+        const rate = merged.type === 'income' ? MOCK_FX.buy : MOCK_FX.sell;
+        const raw = input.amount ?? (cur === 'CRC' ? (m.amountCrc ?? 0) : m.amount);
+        merged.amount = cur === 'CRC' ? raw / rate : raw;
+        merged.amountCrc = cur === 'CRC' ? Math.round(raw) : Math.round(raw * rate);
+      }
+      return merged;
+    });
     return delay(movements.find((m) => m.id === id) as Movement);
   },
   deleteMovement: (id) => {
@@ -139,4 +161,7 @@ export const mockService: FortivaService = {
   },
 
   getPricing: () => delay(mock.pricingPlans),
+
+  getFxRate: () =>
+    delay({ buy: MOCK_FX.buy, sell: MOCK_FX.sell, date: new Date().toISOString(), source: 'mock' }),
 };

@@ -2,7 +2,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { Icon } from './Icon';
 import { OwnerAvatar } from './OwnerAvatar';
 import { Badge } from './Badge';
-import { useCurrency } from '@/context/CurrencyContext';
+import { money } from '@/lib/format';
 import type { Movement } from '@/services/types';
 
 interface Props {
@@ -14,8 +14,9 @@ interface Props {
 }
 
 export function TransactionRow({ m, showOwner = false, onEdit, onDelete }: Props) {
-  const { format } = useCurrency();
   const income = m.type === 'income';
+  const cur = m.currency ?? 'USD';
+  const displayAmount = cur === 'CRC' ? (m.amountCrc ?? 0) : m.amount;
   return (
     <div className="flex items-center gap-3 border-b border-border py-3 last:border-0">
       <div
@@ -31,7 +32,7 @@ export function TransactionRow({ m, showOwner = false, onEdit, onDelete }: Props
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-bold">{m.desc}</div>
         <div className="text-[12.5px] text-text-3">
-          {m.cat} · {m.date}
+          {m.cat && m.cat !== '—' ? `${m.cat} · ` : ''}{m.date}
         </div>
       </div>
 
@@ -52,7 +53,7 @@ export function TransactionRow({ m, showOwner = false, onEdit, onDelete }: Props
         style={{ color: income ? 'var(--pos)' : 'var(--text)' }}
       >
         {income ? '+ ' : '− '}
-        {format(m.amount)}
+        {money(displayAmount, cur)}
       </div>
 
       {(onEdit || onDelete) && (

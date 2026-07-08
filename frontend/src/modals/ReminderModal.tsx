@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Mail } from 'lucide-react';
 import { Modal } from '@/components/Modal';
 import { Input } from '@/components/Input';
+import { DatePicker } from '@/components/DatePicker';
 import { Button } from '@/components/Button';
 import { Switch } from '@/components/Switch';
 import { IconSelect } from '@/components/pickers';
@@ -39,6 +40,10 @@ export function ReminderModal({ open, onClose, onSaved, initial }: Props) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editing && !dueDate) {
+      setError('Indica la fecha de vencimiento');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -72,7 +77,7 @@ export function ReminderModal({ open, onClose, onSaved, initial }: Props) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Input label="Monto (USD)" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" required />
-          <Input label={editing ? 'Nueva fecha (opcional)' : 'Vence'} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required={!editing} />
+          <DatePicker label={editing ? 'Nueva fecha (opcional)' : 'Vence'} align="right" value={dueDate} onChange={setDueDate} />
         </div>
         <IconSelect value={icon} onChange={setIcon} />
         <div className="flex items-center justify-between rounded-input border border-border px-4 py-3">

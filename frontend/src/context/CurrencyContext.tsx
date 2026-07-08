@@ -1,10 +1,13 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { fmt, type Currency } from '@/lib/format';
+import { service } from '@/services';
 
 interface CurrencyCtx {
   currency: Currency;
   setCurrency: (c: Currency) => void;
-  /** Formatea un monto USD según la moneda activa. */
+  /** TC venta actual (colones por USD), del BCCR. */
+  rate: number;
+  /** Formatea un monto USD según la moneda activa y el TC actual. */
   format: (usd: number) => string;
 }
 
@@ -12,8 +15,16 @@ const Ctx = createContext<CurrencyCtx | null>(null);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrency] = useState<Currency>('USD');
-  const format = (usd: number) => fmt(usd, currency);
-  return <Ctx.Provider value={{ currency, setCurrency, format }}>{children}</Ctx.Provider>;
+  const [rate, setRate] = useState(525); // fallback hasta cargar el TC real
+  useEffect(() => {
+    let alive = true;
+    service.getFxRate().then((fx) => alive && setRate(fx.sell)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const format = (usd: number) => fmt(usd, currency, rate);
+  return <Ctx.Provider value={{ currency, setCurrency, rate, format }}>{children}</Ctx.Provider>;
 }
 
 export function useCurrency() {

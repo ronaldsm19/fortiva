@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/Modal';
 import { Input } from '@/components/Input';
+import { DatePicker } from '@/components/DatePicker';
 import { Select } from '@/components/Select';
 import { Button } from '@/components/Button';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -56,7 +57,7 @@ export function PaymentModal({ open, onClose, debt, onPaid }: Props) {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Fecha" value={date} onChange={(e) => setDate(e.target.value)} placeholder="Hoy" />
+          <DatePicker label="Fecha" value={date} onChange={setDate} placeholder="Hoy" />
           <Select label="Método" value={method} onChange={(e) => setMethod(e.target.value)}>
             <option value="transfer">Transferencia</option>
             <option value="debit">Tarjeta de débito</option>
