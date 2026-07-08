@@ -16,6 +16,7 @@ import { networthRoutes } from '@/modules/networth/networth.routes';
 import { assetsRoutes } from '@/modules/assets/assets.routes';
 import { reportsRoutes } from '@/modules/reports/reports.routes';
 import { placeholderRoutes } from '@/modules/placeholders.routes';
+import { jobsRoutes } from '@/modules/jobs/jobs.routes';
 
 export function createApp() {
   const app = express();
@@ -30,11 +31,15 @@ export function createApp() {
     rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }),
   );
 
-  // Healthcheck
-  app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+  // Healthcheck. En Vercel solo llega a la función lo que empieza con /api, por eso
+  // se expone también en /api/health (además de /health para el server local).
+  const health = (_req: express.Request, res: express.Response) =>
+    res.json({ status: 'ok', ts: new Date().toISOString() });
+  app.get('/health', health);
+  app.get('/api/health', health);
 
-  // Docs
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+  // Docs (Swagger). Montado en ambos paths por la misma razón.
+  app.use(['/docs', '/api/docs'], swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
   // API v1
   const v1 = express.Router();
@@ -48,6 +53,7 @@ export function createApp() {
   v1.use(assetsRoutes);
   v1.use(reportsRoutes);
   v1.use(placeholderRoutes); // solo /integrations (Fase 7)
+  v1.use(jobsRoutes); // /jobs/reminders (invocado por Vercel Cron)
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

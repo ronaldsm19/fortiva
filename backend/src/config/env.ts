@@ -24,6 +24,11 @@ const schema = z.object({
   SMTP_PASS: z.string().optional(),
   // URL pública del frontend (para los enlaces de los correos).
   APP_URL: z.string().default('http://localhost:5173'),
+
+  // Secreto que protege el endpoint /jobs/reminders. Vercel Cron lo envía
+  // automáticamente como `Authorization: Bearer <CRON_SECRET>`. Si no se define,
+  // el endpoint queda abierto (solo recomendable en local).
+  CRON_SECRET: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
