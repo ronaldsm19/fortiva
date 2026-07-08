@@ -29,6 +29,8 @@ export function errorHandler(
     error: {
       code: 'INTERNAL',
       message: 'Error interno del servidor',
+      // TEMPORAL: exponer el error real para diagnosticar el deploy en Vercel. QUITAR después.
+      detail: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
       ...(env.NODE_ENV === 'development' && err instanceof Error ? { stack: err.stack } : {}),
     },
   });
