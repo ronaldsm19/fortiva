@@ -28,17 +28,18 @@ export interface FxRates {
   buy: number; // compra
   sell: number; // venta
   date: Date; // fecha/hora del TC según el BCCR
-  source: 'bccr' | 'cache' | 'fallback' | 'db';
+  // 'bccr'/'cache'/'fallback'/'db' → TC ACTUAL (ventanilla/snapshot del día).
+  // 'bccr-hist' → TC HISTÓRICO de una fecha pasada vía el web service oficial (issue #1).
+  source: 'bccr' | 'cache' | 'fallback' | 'db' | 'bccr-hist';
 }
 
 /**
- * MEJORA FUTURA (fuente primaria más robusta): el BCCR ofrece un web service oficial
- * `GEEServicioWeb` (`/IndicadoresEconomicos/WebServices/wsIndicadoresEconomicos.asmx`)
- * con el método `ObtenerIndicadoresEconomicosXML`, que devuelve XML estable en vez de
- * HTML frágil. Los indicadores del dólar son **317 = compra** y **318 = venta**. Requiere
- * registrarse para obtener un correo+token de acceso. La integración sería: usar 317/318
- * como fuente primaria y dejar este scraping de la ventanilla (fila de ARI) como respaldo,
- * conservando la misma firma de `getFxRates()` y el mismo comportamiento de "nunca lanza".
+ * TC HISTÓRICO por fecha (issue #1): la ventanilla de ARI y el snapshot diario solo dan el
+ * TC ACTUAL, así que un movimiento con fecha pasada NO puede resolver su TC con ellos. Para
+ * eso usamos el web service oficial del BCCR `ObtenerIndicadoresEconomicosXML` (indicadores
+ * **317 = compra**, **318 = venta**), que devuelve la serie histórica por rango de fechas.
+ * Ver `getFxRateForDate()` más abajo. Este scraping de la ventanilla (fila de ARI) sigue
+ * siendo la fuente del TC del día.
  */
 const BCCR_URL =
   'https://gee.bccr.fi.cr/IndicadoresEconomicos/Cuadros/frmConsultaTCVentanilla.aspx';
@@ -178,5 +179,182 @@ export async function refreshDailyFxRate(day = utcDayKey()): Promise<FxRates> {
   } catch (err) {
     console.error('[bccrFx] no se pudo guardar el snapshot diario del TC:', err instanceof Error ? err.message : err);
     return fresh;
+  }
+}
+
+// ---------- TC histórico por fecha (web service oficial del BCCR, issue #1) ----------
+
+/**
+ * Un movimiento con fecha PASADA debe congelarse con el TC de ESA fecha, no el de hoy. La
+ * ventanilla de ARI y el snapshot diario solo exponen el TC ACTUAL, así que para fechas
+ * pasadas consultamos el web service oficial del BCCR `ObtenerIndicadoresEconomicosXML`,
+ * que devuelve la serie histórica de un indicador por rango de fechas. Indicadores del
+ * dólar: **317 = compra**, **318 = venta**. Requiere registrarse en el BCCR para obtener un
+ * correo + token (variables `BCCR_WS_EMAIL` / `BCCR_WS_TOKEN`).
+ */
+const BCCR_WS_URL =
+  'https://gee.bccr.fi.cr/IndicadoresEconomicos/WebServices/wsIndicadoresEconomicos.asmx';
+const BCCR_WS_NS = 'http://ws.sdde.bccr.fi.cr';
+const FX_INDICATOR_BUY = '317'; // compra del dólar
+const FX_INDICATOR_SELL = '318'; // venta del dólar
+// Fines de semana y feriados no publican TC: consultamos un rango que TERMINA en la fecha
+// pedida y arranca unos días antes, y tomamos el último dato disponible ≤ esa fecha.
+const HIST_LOOKBACK_DAYS = 10;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Caché en memoria por día: la serie histórica de una fecha ya pasada no cambia.
+const histCache = new Map<string, FxRates>();
+
+/** Fecha en formato dd/mm/yyyy (en UTC) que espera el web service del BCCR. */
+function fmtBccrDate(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getUTCFullYear()}`;
+}
+
+/** Escapa un valor para incrustarlo con seguridad en el XML del sobre SOAP. */
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/** Revierte las entidades XML (el resultado puede venir escapado dentro del sobre SOAP). */
+function unescapeXml(s: string): string {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+/**
+ * Parsea un `NUM_VALOR` del web service. El BCCR lo devuelve con punto decimal ("580.87");
+ * toleramos también coma decimal por robustez. Los TC del dólar (~ cientos) no traen
+ * separador de miles.
+ */
+function parseWsNumber(s: string): number {
+  const t = s.trim();
+  if (t === '') return NaN;
+  if (t.includes(',') && t.includes('.')) return Number(t.replace(/\./g, '').replace(',', '.'));
+  if (t.includes(',')) return Number(t.replace(',', '.'));
+  return Number(t);
+}
+
+/**
+ * Del XML de la serie de un indicador, devuelve el dato MÁS RECIENTE (mayor `DES_FECHA`)
+ * con valor válido. Así resolvemos "el último dato ≤ la fecha pedida" aunque el rango
+ * incluya fines de semana/feriados sin valor. Devuelve null si no hay ningún dato.
+ */
+function parseLatestFromSeries(rawXml: string): { value: number; date: Date } | null {
+  const xml = unescapeXml(rawXml);
+  const blocks = xml.matchAll(
+    /<INGC011_CAT_INDICADORECONOMIC\b[^>]*>([\s\S]*?)<\/INGC011_CAT_INDICADORECONOMIC>/gi,
+  );
+  let best: { value: number; date: Date } | null = null;
+  for (const b of blocks) {
+    const body = b[1];
+    const vm = body.match(/<NUM_VALOR\b[^>]*>([\s\S]*?)<\/NUM_VALOR>/i);
+    if (!vm) continue;
+    const value = parseWsNumber(vm[1]);
+    if (!Number.isFinite(value) || value <= 0) continue; // fecha sin dato publicado: se salta
+    const dm = body.match(/<DES_FECHA\b[^>]*>([\s\S]*?)<\/DES_FECHA>/i);
+    const date = dm ? new Date(dm[1].trim()) : new Date();
+    if (!best || date.getTime() > best.date.getTime()) best = { value, date };
+  }
+  return best;
+}
+
+/** Sobre SOAP 1.1 para `ObtenerIndicadoresEconomicosXML`. */
+function buildSoapEnvelope(
+  indicador: string, inicio: string, fin: string, email: string, token: string,
+): string {
+  return (
+    '<?xml version="1.0" encoding="utf-8"?>' +
+    '<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' +
+    ' xmlns:xsd="http://www.w3.org/2001/XMLSchema"' +
+    ' xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' +
+    '<soap:Body>' +
+    `<ObtenerIndicadoresEconomicosXML xmlns="${BCCR_WS_NS}">` +
+    `<Indicador>${indicador}</Indicador>` +
+    `<FechaInicio>${inicio}</FechaInicio>` +
+    `<FechaFinal>${fin}</FechaFinal>` +
+    '<Nombre>Fortiva</Nombre>' +
+    '<SubNiveles>N</SubNiveles>' +
+    `<CorreoElectronico>${escapeXml(email)}</CorreoElectronico>` +
+    `<Token>${escapeXml(token)}</Token>` +
+    '</ObtenerIndicadoresEconomicosXML>' +
+    '</soap:Body>' +
+    '</soap:Envelope>'
+  );
+}
+
+/** Consulta un indicador (317/318) en el rango dado y devuelve su dato más reciente. */
+async function fetchIndicator(
+  indicador: string, inicio: string, fin: string, email: string, token: string,
+): Promise<{ value: number; date: Date } | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const res = await fetch(BCCR_WS_URL, {
+    method: 'POST',
+    signal: ctrl.signal,
+    headers: {
+      'Content-Type': 'text/xml; charset=utf-8',
+      SOAPAction: `${BCCR_WS_NS}/ObtenerIndicadoresEconomicosXML`,
+      'User-Agent': 'Mozilla/5.0 (Fortiva)',
+    },
+    body: buildSoapEnvelope(indicador, inicio, fin, email, token),
+  }).finally(() => clearTimeout(timer));
+  if (!res.ok) throw new Error(`el web service del BCCR respondió HTTP ${res.status}`);
+  return parseLatestFromSeries(await res.text());
+}
+
+/**
+ * TC (compra/venta) del BCCR para una FECHA PASADA vía el web service oficial (317/318).
+ * Toma el último dato ≤ `date` (fines de semana/feriados no publican valor). Cachea por día
+ * en memoria. **NUNCA lanza**: si faltan credenciales o el servicio falla, cae a
+ * `getDailyFxRate()` (TC del día), que a su vez ya trae su propio fallback — así no se
+ * bloquea el guardado del movimiento.
+ */
+export async function getFxRateForDate(date: Date): Promise<FxRates> {
+  const key = utcDayKey(date);
+  const cached = histCache.get(key);
+  if (cached) return cached;
+
+  const email = env.BCCR_WS_EMAIL;
+  const token = env.BCCR_WS_TOKEN;
+  // Sin credenciales del web service no podemos consultar históricos: usamos el TC del día.
+  if (!email || !token) return getDailyFxRate();
+
+  try {
+    const fin = fmtBccrDate(date);
+    const inicio = fmtBccrDate(new Date(date.getTime() - HIST_LOOKBACK_DAYS * DAY_MS));
+    const [buy, sell] = await Promise.all([
+      fetchIndicator(FX_INDICATOR_BUY, inicio, fin, email, token),
+      fetchIndicator(FX_INDICATOR_SELL, inicio, fin, email, token),
+    ]);
+    if (!buy || !sell) {
+      throw new Error('el web service del BCCR no devolvió compra y/o venta para la fecha');
+    }
+    const rates: FxRates = {
+      buy: buy.value,
+      sell: sell.value,
+      // Fecha real del TC (la más reciente entre compra/venta; normalmente coinciden).
+      date: buy.date.getTime() >= sell.date.getTime() ? buy.date : sell.date,
+      source: 'bccr-hist',
+    };
+    histCache.set(key, rates); // la serie histórica de esa fecha ya no cambia
+    return rates;
+  } catch (err) {
+    const motivo = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `[bccrFx][hist][FALLBACK] No se pudo obtener el TC histórico del BCCR para ${key} ` +
+        `(motivo: ${motivo}). Se usa el TC del día.`,
+    );
+    return getDailyFxRate();
   }
 }
