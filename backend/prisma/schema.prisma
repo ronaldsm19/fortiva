@@ -286,3 +286,19 @@ model Asset {
   @@index([accountId])
   @@map("assets")
 }
+
+// ---------- Snapshot diario del tipo de cambio ----------
+// Un registro por día (día en UTC, "YYYY-MM-DD"): el cron diario lo llena una vez y
+// todos los movimientos del día leen el MISMO TC de aquí, en vez de scrapear el BCCR
+// por movimiento. Es global (no por cuenta): el TC del BCCR es el mismo para todos.
+model FxRate {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  day       String   @unique // "YYYY-MM-DD" en UTC — un snapshot por día
+  buy       Float // TC compra (colones por USD)
+  sell      Float // TC venta (colones por USD)
+  source    String // origen del dato: "bccr" | "cache"
+  fetchedAt DateTime @map("fetched_at") // cuándo se obtuvo el TC del BCCR
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("fx_rates")
+}
