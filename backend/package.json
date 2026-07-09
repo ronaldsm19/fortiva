@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
     "start": "node dist/src/server.js",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
@@ -44,6 +45,7 @@
     "prisma": "^5.18.0",
     "tsc-alias": "^1.8.10",
     "tsx": "^4.16.5",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.9"
   }
 }
