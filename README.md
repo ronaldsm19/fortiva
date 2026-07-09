@@ -1,5 +1,7 @@
 # Handoff: Fortiva — SaaS de finanzas personales/familiares
 
+[![CI](https://github.com/ronaldsm19/fortiva/actions/workflows/ci.yml/badge.svg)](https://github.com/ronaldsm19/fortiva/actions/workflows/ci.yml)
+
 ## Overview
 Fortiva es un SaaS premium de finanzas personales y familiares. Permite controlar gastos e
 ingresos mensuales, categorías, deudas, inversiones/patrimonio, recordatorios de pago y un
