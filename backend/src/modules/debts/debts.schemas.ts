@@ -7,8 +7,9 @@ export const listDebtsQuery = z.object({
 export const createDebtSchema = z.object({
   name: z.string().min(1),
   issuer: z.string().min(1),
-  total: z.number().nonnegative(),
-  monthly: z.number().nonnegative(),
+  total: z.number().nonnegative(), // en la moneda de `currency`
+  monthly: z.number().nonnegative(), // en la moneda de `currency`
+  currency: z.enum(['USD', 'CRC']).default('USD'),
   rate: z.string().optional(),
   due: z.string().optional(),
   owner: z.enum(['Ana', 'Luis', 'Pareja']),

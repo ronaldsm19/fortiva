@@ -11,6 +11,19 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 /** TC mock (colones por USD) — compra ingresos, venta gastos. */
 const MOCK_FX = { buy: 451.6, sell: 457.47 };
 
+/**
+ * Deriva USD/colones de un monto ingresado en `currency` con el TC de **venta** (deudas,
+ * recordatorios y activos no son ingreso/gasto). Réplica de `amountsFromCurrency` del backend.
+ * Soporta montos negativos (pasivos).
+ */
+const fxSplit = (amount: number, currency: 'USD' | 'CRC', sell = MOCK_FX.sell) =>
+  currency === 'CRC'
+    ? { usd: amount / sell, crc: Math.round(amount) }
+    : { usd: amount, crc: Math.round(amount * sell) };
+
+/** Campos de TC congelado que se guardan al crear (mock). */
+const frozenFx = () => ({ fxBuy: MOCK_FX.buy, fxSell: MOCK_FX.sell, fxDate: new Date().toISOString() });
+
 // Estado en memoria (mutable) para simular CRUD durante la sesión.
 let movements = [...mock.movements];
 let system = [...mock.systemCategories];
@@ -96,12 +109,35 @@ export const mockService: FortivaService = {
   },
 
   createDebt: (input) => {
-    const d: Debt = { ...input, id: uid(), paid: 0 };
+    const cur = input.currency ?? 'USD';
+    const total = fxSplit(input.total, cur);
+    const monthly = fxSplit(input.monthly, cur);
+    const d: Debt = {
+      ...input, id: uid(), paid: 0, currency: cur,
+      total: total.usd, totalCrc: total.crc,
+      monthly: monthly.usd, monthlyCrc: monthly.crc,
+      ...frozenFx(),
+    };
     debts = [...debts, d];
     return delay(d);
   },
   updateDebt: (id, input) => {
-    debts = debts.map((d) => (d.id === id ? { ...d, ...input } : d));
+    debts = debts.map((d) => {
+      if (d.id !== id) return d;
+      const merged: Debt = { ...d, ...input };
+      // recomputa USD/colones si cambió total, cuota o moneda (igual que el backend)
+      if (input.total !== undefined || input.monthly !== undefined || input.currency !== undefined) {
+        const cur = merged.currency ?? 'USD';
+        const sell = merged.fxSell ?? MOCK_FX.sell;
+        const rawTotal = input.total ?? (cur === 'CRC' ? (d.totalCrc ?? 0) : d.total);
+        const rawMonthly = input.monthly ?? (cur === 'CRC' ? (d.monthlyCrc ?? 0) : d.monthly);
+        const total = fxSplit(rawTotal, cur, sell);
+        const monthly = fxSplit(rawMonthly, cur, sell);
+        merged.total = total.usd; merged.totalCrc = total.crc;
+        merged.monthly = monthly.usd; merged.monthlyCrc = monthly.crc;
+      }
+      return merged;
+    });
     return delay(debts.find((d) => d.id === id) as Debt);
   },
   deleteDebt: (id) => {
@@ -118,12 +154,25 @@ export const mockService: FortivaService = {
 
   listAssets: (): Promise<Asset[]> => delay(assets),
   createAsset: (input) => {
-    const a: Asset = { ...input, id: uid() };
+    const cur = input.currency ?? 'USD';
+    const { usd, crc } = fxSplit(input.amount, cur); // input.amount puede ser negativo (pasivo)
+    const a: Asset = { ...input, id: uid(), currency: cur, amount: usd, amountCrc: crc, ...frozenFx() };
     assets = [...assets, a];
     return delay(a);
   },
   updateAsset: (id, input) => {
-    assets = assets.map((a) => (a.id === id ? { ...a, ...input } : a));
+    assets = assets.map((a) => {
+      if (a.id !== id) return a;
+      const merged: Asset = { ...a, ...input };
+      if (input.amount !== undefined || input.currency !== undefined) {
+        const cur = merged.currency ?? 'USD';
+        const sell = merged.fxSell ?? MOCK_FX.sell;
+        const raw = input.amount ?? (cur === 'CRC' ? (a.amountCrc ?? 0) : a.amount);
+        const { usd, crc } = fxSplit(raw, cur, sell);
+        merged.amount = usd; merged.amountCrc = crc;
+      }
+      return merged;
+    });
     return delay(assets.find((a) => a.id === id) as Asset);
   },
   deleteAsset: (id) => {
@@ -133,12 +182,25 @@ export const mockService: FortivaService = {
 
   listReminders: (): Promise<Reminder[]> => delay(reminders),
   createReminder: (input) => {
-    const r: Reminder = { ...input, id: uid() };
+    const cur = input.currency ?? 'USD';
+    const { usd, crc } = fxSplit(input.amount, cur);
+    const r: Reminder = { ...input, id: uid(), currency: cur, amount: usd, amountCrc: crc, ...frozenFx() };
     reminders = [...reminders, r];
     return delay(r);
   },
   updateReminder: (id, input) => {
-    reminders = reminders.map((r) => (r.id === id ? { ...r, ...input } : r));
+    reminders = reminders.map((r) => {
+      if (r.id !== id) return r;
+      const merged: Reminder = { ...r, ...input };
+      if (input.amount !== undefined || input.currency !== undefined) {
+        const cur = merged.currency ?? 'USD';
+        const sell = merged.fxSell ?? MOCK_FX.sell;
+        const raw = input.amount ?? (cur === 'CRC' ? (r.amountCrc ?? 0) : r.amount);
+        const { usd, crc } = fxSplit(raw, cur, sell);
+        merged.amount = usd; merged.amountCrc = crc;
+      }
+      return merged;
+    });
     return delay(reminders.find((r) => r.id === id) as Reminder);
   },
   deleteReminder: (id) => {

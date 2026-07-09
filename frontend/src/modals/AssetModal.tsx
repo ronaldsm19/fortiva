@@ -3,9 +3,10 @@ import { Modal } from '@/components/Modal';
 import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
 import { Segmented } from '@/components/Segmented';
+import { CurrencyAmount, CurrencyHint } from '@/components/CurrencyAmount';
 import { IconSelect, ColorSwatches } from '@/components/pickers';
 import { service } from '@/services';
-import type { Asset } from '@/services/types';
+import type { Asset, FxRate } from '@/services/types';
 
 interface Props {
   open: boolean;
@@ -18,20 +19,26 @@ export function AssetModal({ open, onClose, onSaved, initial }: Props) {
   const editing = !!initial;
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [curr, setCurr] = useState<'USD' | 'CRC'>('CRC');
   const [kind, setKind] = useState<'asset' | 'liability'>('asset');
   const [icon, setIcon] = useState('banknote');
   const [color, setColor] = useState('#2456C9');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [fx, setFx] = useState<FxRate | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setName(initial?.name ?? '');
-    setAmount(initial ? String(Math.abs(initial.amount)) : '');
+    const initCur = initial?.currency ?? 'USD';
+    setCurr(initial ? initCur : 'CRC');
+    // el monto se ingresa en positivo; el signo lo determina "Activo / Pasivo".
+    setAmount(initial ? String(Math.abs(initCur === 'CRC' ? (initial.amountCrc ?? 0) : initial.amount)) : '');
     setKind(initial ? (initial.isAsset ? 'asset' : 'liability') : 'asset');
     setIcon(initial?.icon ?? 'banknote');
     setColor(initial?.color ?? '#2456C9');
     setError('');
+    service.getFxRate().then(setFx).catch(() => setFx(null));
   }, [open, initial]);
 
   const submit = async (e: React.FormEvent) => {
@@ -41,7 +48,7 @@ export function AssetModal({ open, onClose, onSaved, initial }: Props) {
     try {
       const isAsset = kind === 'asset';
       const value = (Number(amount) || 0) * (isAsset ? 1 : -1);
-      const payload = { name, amount: value, icon, color, isAsset };
+      const payload = { name, amount: value, currency: curr, icon, color, isAsset };
       if (editing) await service.updateAsset(initial!.id, payload);
       else await service.createAsset(payload);
       onSaved();
@@ -65,7 +72,8 @@ export function AssetModal({ open, onClose, onSaved, initial }: Props) {
           onChange={(v) => setKind(v as typeof kind)}
         />
         <Input label="Nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder="Cuenta bancaria" required />
-        <Input label="Monto (USD)" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" required />
+        <CurrencyAmount label="Monto" value={amount} onChange={setAmount} currency={curr} onCurrencyChange={setCurr} required />
+        <CurrencyHint fx={fx} amount={amount} currency={curr} />
         <div className="grid grid-cols-2 gap-3">
           <IconSelect value={icon} onChange={setIcon} />
           <ColorSwatches value={color} onChange={setColor} />

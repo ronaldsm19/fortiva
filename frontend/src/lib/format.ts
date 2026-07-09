@@ -27,6 +27,42 @@ export function crcOf(m: { amount: number; amountCrc?: number }, rate: number): 
   return m.amountCrc ?? Math.round(m.amount * rate);
 }
 
+/** Moneda en la que se ingresó un registro (registros previos: USD). */
+export function curOf(r: { currency?: Currency }): Currency {
+  return r.currency ?? 'USD';
+}
+
+/**
+ * Valor en colones de un monto USD: usa el valor congelado (`crc`) si existe; si falta
+ * (registros previos/mock), lo deriva con `rate`. Soporta montos negativos (pasivos).
+ */
+export function crcVal(usd: number, crc: number | null | undefined, rate: number): number {
+  return crc ?? Math.round(usd * rate);
+}
+
+/**
+ * Valor a mostrar en la moneda de entrada del registro: USD tal cual, o el valor en colones
+ * congelado (`crc`) / derivado. Úsese junto a `money(valor, moneda)`.
+ */
+export function valueIn(
+  usd: number,
+  currency: Currency,
+  crc: number | null | undefined,
+  rate: number,
+): number {
+  return currency === 'CRC' ? crcVal(usd, crc, rate) : usd;
+}
+
+/** Formatea un monto en la moneda de entrada del registro (previos: USD). */
+export function moneyIn(
+  usd: number,
+  currency: Currency,
+  crc: number | null | undefined,
+  rate: number,
+): string {
+  return money(valueIn(usd, currency, crc, rate), currency);
+}
+
 export const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
