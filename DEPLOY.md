@@ -62,6 +62,25 @@ npm run prisma:push      # crea colecciones e índices en Atlas
 npm run seed             # (opcional) datos demo: ana@fortiva.app / demo1234
 ```
 
+### Backfill del TC en movimientos previos (issue #6)
+
+Los movimientos creados **antes** del feature de TC no tienen `currency` ni `amountCrc`; sin
+backfill, su valor en colones se deriva con `FX_FALLBACK` (~505), que no refleja el TC real de
+su fecha. Corre **una sola vez** (con `DATABASE_URL` apuntando a la BD) este script, que congela
+`amountCrc`/`currency`/`fxBuy`/`fxSell`/`fxDate` con el TC de la fecha de cada movimiento:
+
+```bash
+cd backend
+# DATABASE_URL apuntando a la BD (Atlas o local). Opcional pero recomendado para el TC
+# histórico exacto de fechas pasadas: BCCR_WS_EMAIL / BCCR_WS_TOKEN (ver «Token del BCCR» abajo).
+npm run backfill:fx
+```
+
+- **Idempotente:** solo toca los movimientos con `amountCrc`/`currency` en null; correrlo dos
+  veces no cambia nada. Loguea cuántos actualizó.
+- Sin `BCCR_WS_*`, los movimientos con fecha pasada caen al **TC del día** (los de hoy siempre
+  usan el TC del día). Con las credenciales, cada uno usa el **TC histórico** de su fecha.
+
 ---
 
 ## 3. Crear el proyecto en Vercel
