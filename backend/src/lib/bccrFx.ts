@@ -31,6 +31,15 @@ export interface FxRates {
   source: 'bccr' | 'cache' | 'fallback' | 'db';
 }
 
+/**
+ * MEJORA FUTURA (fuente primaria más robusta): el BCCR ofrece un web service oficial
+ * `GEEServicioWeb` (`/IndicadoresEconomicos/WebServices/wsIndicadoresEconomicos.asmx`)
+ * con el método `ObtenerIndicadoresEconomicosXML`, que devuelve XML estable en vez de
+ * HTML frágil. Los indicadores del dólar son **317 = compra** y **318 = venta**. Requiere
+ * registrarse para obtener un correo+token de acceso. La integración sería: usar 317/318
+ * como fuente primaria y dejar este scraping de la ventanilla (fila de ARI) como respaldo,
+ * conservando la misma firma de `getFxRates()` y el mismo comportamiento de "nunca lanza".
+ */
 const BCCR_URL =
   'https://gee.bccr.fi.cr/IndicadoresEconomicos/Cuadros/frmConsultaTCVentanilla.aspx';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora
@@ -86,8 +95,21 @@ export async function getFxRates(): Promise<FxRates> {
     cache = { rates, at: Date.now() };
     return rates;
   } catch (err) {
-    console.error('[bccrFx] no se pudo obtener el TC del BCCR:', err instanceof Error ? err.message : err);
-    if (cache) return { ...cache.rates, source: 'cache' };
+    const motivo = err instanceof Error ? err.message : String(err);
+    // Degradado pero aceptable: seguimos con el último TC conocido en caché.
+    if (cache) {
+      console.warn(
+        `[bccrFx][FALLBACK] No se pudo refrescar el TC del BCCR (motivo: ${motivo}). ` +
+          `Se reutiliza el último TC en caché (compra=${cache.rates.buy}, venta=${cache.rates.sell}).`,
+      );
+      return { ...cache.rates, source: 'cache' };
+    }
+    // Sin caché disponible: se usa el TC de respaldo de configuración (FX_FALLBACK).
+    console.error(
+      `[bccrFx][FALLBACK] No se pudo obtener el TC del BCCR y no hay caché (motivo: ${motivo}). ` +
+        `Se usa el TC de respaldo FX_FALLBACK=${env.FX_FALLBACK} colones por USD. ` +
+        `Posible causa: el BCCR cambió el HTML/formato o quitó a "ARI Casa de Cambio Internacional".`,
+    );
     return fallback();
   }
 }
