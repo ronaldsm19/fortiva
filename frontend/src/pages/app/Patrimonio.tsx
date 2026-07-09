@@ -7,13 +7,13 @@ import { Button } from '@/components/Button';
 import { AssetModal } from '@/modals/AssetModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useCurrency } from '@/context/CurrencyContext';
-import { pct, tint } from '@/lib/format';
+import { pct, tint, money, moneyIn, curOf, crcVal } from '@/lib/format';
 import { donutColors } from '@/data/mock';
 import { service } from '@/services';
 import type { Asset } from '@/services/types';
 
 export function Patrimonio() {
-  const { format } = useCurrency();
+  const { rate } = useCurrency();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
@@ -24,17 +24,19 @@ export function Patrimonio() {
   };
   useEffect(load, []);
 
+  // Totales en colones: cada activo respeta su propio TC congelado (o el actual si es previo).
   const { totalAssets, netWorth, donut } = useMemo(() => {
+    const crc = (a: Asset) => crcVal(a.amount, a.amountCrc, a.fxSell ?? rate);
     const positives = assets.filter((a) => a.isAsset);
-    const totalAssets = positives.reduce((a, p) => a + p.amount, 0);
-    const netWorth = assets.reduce((a, p) => a + p.amount, 0);
+    const totalAssets = positives.reduce((s, p) => s + crc(p), 0);
+    const netWorth = assets.reduce((s, p) => s + crc(p), 0);
     const donut = positives.map((p, i) => ({
       name: p.name,
-      value: p.amount,
+      value: crc(p),
       color: donutColors[i % donutColors.length],
     }));
-    return { positives, totalAssets, netWorth, donut };
-  }, [assets]);
+    return { totalAssets, netWorth, donut };
+  }, [assets, rate]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -51,7 +53,7 @@ export function Patrimonio() {
           style={{ background: 'linear-gradient(135deg,var(--accent),var(--accent-strong))' }}
         >
           <div className="text-[14px] font-semibold opacity-90">Patrimonio neto</div>
-          <div className="fnum my-2 text-[40px] font-extrabold tracking-tight">{format(netWorth)}</div>
+          <div className="fnum my-2 text-[40px] font-extrabold tracking-tight">{money(netWorth, 'CRC')}</div>
           <div className="flex items-center gap-1.5 text-[13.5px] opacity-90">
             <TrendingUp size={16} /> +4.2% este mes
           </div>
@@ -79,7 +81,7 @@ export function Patrimonio() {
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-[11px] text-text-3">Activos</span>
-                <span className="fnum text-[15px] font-extrabold">{format(totalAssets)}</span>
+                <span className="fnum text-[15px] font-extrabold">{money(totalAssets, 'CRC')}</span>
               </div>
             </div>
 
@@ -129,7 +131,7 @@ export function Patrimonio() {
               style={{ color: a.isAsset ? 'var(--text)' : 'var(--neg)' }}
             >
               {a.amount < 0 ? '−' : ''}
-              {format(a.amount)}
+              {moneyIn(a.amount, curOf(a), a.amountCrc, a.fxSell ?? rate)}
             </div>
           </Card>
         ))}

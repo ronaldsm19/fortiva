@@ -48,9 +48,15 @@ export interface Debt {
   id: string;
   name: string;
   issuer: string;
-  paid: number;
-  total: number;
-  monthly: number;
+  paid: number; // USD
+  total: number; // USD (canónico). En el payload de creación = total en `currency`.
+  monthly: number; // USD (canónico). En el payload de creación = cuota en `currency`.
+  totalCrc?: number; // total en colones (congelado al crear)
+  monthlyCrc?: number; // cuota en colones (congelada al crear)
+  currency?: 'USD' | 'CRC'; // moneda en la que se ingresó
+  fxBuy?: number | null; // TC compra congelado
+  fxSell?: number | null; // TC venta congelado (se usa para deudas)
+  fxDate?: string | null; // fecha/hora del TC (ISO)
   rate: string;
   due: string;
   owner: OwnerKey;
@@ -61,7 +67,12 @@ export interface Reminder {
   id: string;
   name: string;
   issuer: string;
-  amount: number;
+  amount: number; // USD (canónico). En el payload de creación = monto en `currency`.
+  amountCrc?: number; // valor en colones (congelado al crear)
+  currency?: 'USD' | 'CRC'; // moneda en la que se ingresó
+  fxBuy?: number | null; // TC compra congelado
+  fxSell?: number | null; // TC venta congelado (se usa para recordatorios)
+  fxDate?: string | null; // fecha/hora del TC (ISO)
   due: string;
   status: 'pendiente' | 'pagado';
   email: boolean;
@@ -71,7 +82,12 @@ export interface Reminder {
 export interface Asset {
   id: string;
   name: string;
-  amount: number; // negativo = pasivo
+  amount: number; // USD (canónico); negativo = pasivo. En creación = monto en `currency`.
+  amountCrc?: number; // valor en colones (congelado al crear)
+  currency?: 'USD' | 'CRC'; // moneda en la que se ingresó
+  fxBuy?: number | null; // TC compra congelado
+  fxSell?: number | null; // TC venta congelado (se usa para activos)
+  fxDate?: string | null; // fecha/hora del TC (ISO)
   icon: string;
   color: string;
   isAsset: boolean;

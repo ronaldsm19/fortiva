@@ -11,7 +11,7 @@ import { PaymentModal } from '@/modals/PaymentModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useHousehold } from '@/context/HouseholdContext';
-import { pct } from '@/lib/format';
+import { pct, money, curOf, crcVal, valueIn } from '@/lib/format';
 import { service } from '@/services';
 import type { Debt } from '@/services/types';
 
@@ -24,7 +24,7 @@ const filters: { key: Filter; label: string }[] = [
 ];
 
 export function Deudas() {
-  const { format } = useCurrency();
+  const { rate } = useCurrency();
   const { ownerLabel } = useHousehold();
   const labelFor = (key: Filter) =>
     key === 'ana' ? ownerLabel('Ana') : key === 'luis' ? ownerLabel('Luis') : key === 'todas' ? 'Todas' : 'Compartidas';
@@ -44,18 +44,23 @@ export function Deudas() {
     service.listDebts(filter).then(setVisible);
   }, [filter, all]);
 
-  // Resumen (sobre TODAS las deudas, no el filtro)
+  // Resumen (sobre TODAS las deudas, no el filtro). Se suma en COLONES porque cada deuda
+  // puede estar en ₡ o $: se respeta el TC congelado de cada una (o el actual si es previa).
   const summary = useMemo(() => {
-    const pending = all.reduce((a, d) => a + (d.total - d.paid), 0);
-    const monthAna = all.filter((d) => d.owner === 'Ana').reduce((a, d) => a + d.monthly, 0);
-    const monthLuis = all.filter((d) => d.owner === 'Luis').reduce((a, d) => a + d.monthly, 0);
-    const monthPareja = all.filter((d) => d.owner === 'Pareja').reduce((a, d) => a + d.monthly, 0);
+    const rd = (d: Debt) => d.fxSell ?? rate;
+    // restante en colones = total congelado − pagos (USD) convertidos al TC de la deuda.
+    const remainingCrc = (d: Debt) => crcVal(d.total, d.totalCrc, rd(d)) - crcVal(d.paid, null, rd(d));
+    const monthlyCrc = (d: Debt) => crcVal(d.monthly, d.monthlyCrc, rd(d));
+    const pending = all.reduce((a, d) => a + remainingCrc(d), 0);
+    const monthAna = all.filter((d) => d.owner === 'Ana').reduce((a, d) => a + monthlyCrc(d), 0);
+    const monthLuis = all.filter((d) => d.owner === 'Luis').reduce((a, d) => a + monthlyCrc(d), 0);
+    const monthPareja = all.filter((d) => d.owner === 'Pareja').reduce((a, d) => a + monthlyCrc(d), 0);
     return {
       pending,
       ana: monthAna + Math.round(monthPareja / 2),
       luis: monthLuis + Math.round(monthPareja / 2),
     };
-  }, [all]);
+  }, [all, rate]);
 
   const ownerBadge = (d: Debt) =>
     d.owner === 'Pareja' ? (
@@ -74,14 +79,14 @@ export function Deudas() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr_1fr]">
         <Card className="!border-neg/30" style={{ background: 'var(--neg-weak)' }}>
           <div className="text-[13.5px] font-semibold text-text-2">Deuda pendiente total</div>
-          <div className="fnum mt-1 text-[29px] font-extrabold text-neg">{format(summary.pending)}</div>
+          <div className="fnum mt-1 text-[29px] font-extrabold text-neg">{money(summary.pending, 'CRC')}</div>
         </Card>
         <Card>
           <div className="flex items-center gap-2">
             <OwnerAvatar owner="Ana" size={28} />
             <span className="text-[13.5px] font-semibold text-text-2">Paga {ownerLabel('Ana')} / mes</span>
           </div>
-          <div className="fnum mt-2 text-[24px] font-extrabold">{format(summary.ana)}</div>
+          <div className="fnum mt-2 text-[24px] font-extrabold">{money(summary.ana, 'CRC')}</div>
           <div className="text-[12px] text-text-3">incl. mitad compartida</div>
         </Card>
         <Card>
@@ -89,7 +94,7 @@ export function Deudas() {
             <OwnerAvatar owner="Luis" size={28} />
             <span className="text-[13.5px] font-semibold text-text-2">Paga {ownerLabel('Luis')} / mes</span>
           </div>
-          <div className="fnum mt-2 text-[24px] font-extrabold">{format(summary.luis)}</div>
+          <div className="fnum mt-2 text-[24px] font-extrabold">{money(summary.luis, 'CRC')}</div>
           <div className="text-[12px] text-text-3">incl. mitad compartida</div>
         </Card>
       </div>
@@ -123,8 +128,14 @@ export function Deudas() {
       {/* Cards de deuda */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {visible.map((d) => {
-          const remaining = d.total - d.paid;
-          const percent = pct(d.paid, d.total);
+          // Cada deuda se muestra en su moneda de entrada, con su TC congelado.
+          const cur = curOf(d);
+          const rd = d.fxSell ?? rate;
+          const totalV = valueIn(d.total, cur, d.totalCrc, rd);
+          const paidV = valueIn(d.paid, cur, null, rd);
+          const monthlyV = valueIn(d.monthly, cur, d.monthlyCrc, rd);
+          const remainingV = totalV - paidV;
+          const percent = pct(d.paid, d.total); // ratio en USD (independiente de la moneda)
           return (
             <Card key={d.id}>
               <div className="mb-4 flex items-start justify-between gap-3">
@@ -153,11 +164,11 @@ export function Deudas() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <div className="text-[12px] text-text-3">Cuota mensual</div>
-                  <div className="fnum text-[16px] font-extrabold">{format(d.monthly)}</div>
+                  <div className="fnum text-[16px] font-extrabold">{money(monthlyV, cur)}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[12px] text-text-3">Restante</div>
-                  <div className="fnum text-[16px] font-extrabold text-neg">{format(remaining)}</div>
+                  <div className="fnum text-[16px] font-extrabold text-neg">{money(remainingV, cur)}</div>
                 </div>
                 <Button size="sm" variant="secondary" onClick={() => setPayDebt(d)}>
                   Registrar pago
@@ -166,7 +177,7 @@ export function Deudas() {
 
               <div className="mb-1.5 flex items-center justify-between text-[12px] text-text-3">
                 <span className="fnum">
-                  {format(d.paid)} de {format(d.total)}
+                  {money(paidV, cur)} de {money(totalV, cur)}
                 </span>
                 <span className="fnum font-bold text-pos">{percent}%</span>
               </div>

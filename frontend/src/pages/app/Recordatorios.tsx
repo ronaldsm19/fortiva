@@ -8,11 +8,12 @@ import { Switch } from '@/components/Switch';
 import { ReminderModal } from '@/modals/ReminderModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useCurrency } from '@/context/CurrencyContext';
+import { moneyIn, curOf } from '@/lib/format';
 import { service } from '@/services';
 import type { Reminder } from '@/services/types';
 
 export function Recordatorios() {
-  const { format } = useCurrency();
+  const { rate } = useCurrency();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Reminder | null>(null);
@@ -58,7 +59,7 @@ export function Recordatorios() {
                 <div className="text-[14.5px] font-bold">{r.name}</div>
                 <div className="text-[12.5px] text-text-3">{r.issuer} · vence {r.due}</div>
               </div>
-              <div className="fnum text-[15px] font-extrabold">{format(r.amount)}</div>
+              <div className="fnum text-[15px] font-extrabold">{moneyIn(r.amount, curOf(r), r.amountCrc, r.fxSell ?? rate)}</div>
               <Badge color={paid ? 'var(--pos)' : 'var(--neg)'} bg={paid ? 'var(--pos-weak)' : 'var(--neg-weak)'}>
                 {paid ? 'Pagado' : 'Pendiente'}
               </Badge>

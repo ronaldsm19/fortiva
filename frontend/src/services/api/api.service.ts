@@ -1,5 +1,5 @@
 import type { FortivaService } from '../service.interface';
-import type { CoupleConfig, Debt, Kpi, Movement, MonthPoint, Reminder, TopCategory } from '../types';
+import type { Asset, CoupleConfig, Debt, Kpi, Movement, MonthPoint, Reminder, TopCategory } from '../types';
 import { http } from '../http';
 
 /** Implementación real contra el backend REST. */
@@ -75,7 +75,8 @@ function reminderPayload(input: Partial<Omit<Reminder, 'id'>>) {
   const p: Record<string, unknown> = {};
   if (input.name !== undefined) p.name = input.name;
   if (input.issuer !== undefined) p.issuer = input.issuer;
-  if (input.amount !== undefined) p.amount = input.amount;
+  if (input.amount !== undefined) p.amount = input.amount; // en la moneda de `currency`
+  if (input.currency !== undefined) p.currency = input.currency;
   if (input.due !== undefined) p.dueDate = input.due; // ISO desde input date
   if (input.email !== undefined) p.emailEnabled = input.email;
   if (input.status !== undefined) p.status = input.status === 'pagado' ? 'paid' : 'pending';
@@ -87,11 +88,23 @@ function debtPayload(input: Partial<Omit<Debt, 'id' | 'paid'>>) {
   const p: Record<string, unknown> = {};
   if (input.name !== undefined) p.name = input.name;
   if (input.issuer !== undefined) p.issuer = input.issuer;
-  if (input.total !== undefined) p.total = input.total;
-  if (input.monthly !== undefined) p.monthly = input.monthly;
+  if (input.total !== undefined) p.total = input.total; // en la moneda de `currency`
+  if (input.monthly !== undefined) p.monthly = input.monthly; // en la moneda de `currency`
+  if (input.currency !== undefined) p.currency = input.currency;
   if (input.rate !== undefined) p.rate = input.rate;
   if (input.owner !== undefined) p.owner = input.owner;
   if (input.icon !== undefined) p.icon = input.icon;
+  return p;
+}
+
+function assetPayload(input: Partial<Omit<Asset, 'id'>>) {
+  const p: Record<string, unknown> = {};
+  if (input.name !== undefined) p.name = input.name;
+  if (input.amount !== undefined) p.amount = input.amount; // en la moneda de `currency`
+  if (input.currency !== undefined) p.currency = input.currency;
+  if (input.icon !== undefined) p.icon = input.icon;
+  if (input.color !== undefined) p.color = input.color;
+  if (input.isAsset !== undefined) p.isAsset = input.isAsset;
   return p;
 }
 
@@ -124,9 +137,8 @@ export const apiService: FortivaService = {
   registerPayment: (debtId, amount) => http(`/debts/${debtId}/payments`, { method: 'POST', body: JSON.stringify({ amount }) }),
 
   listAssets: () => http('/networth'),
-  createAsset: (input) =>
-    http('/assets', { method: 'POST', body: JSON.stringify({ name: input.name, amount: input.amount, icon: input.icon, color: input.color, isAsset: input.isAsset }) }),
-  updateAsset: (id, input) => http(`/assets/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  createAsset: (input) => http('/assets', { method: 'POST', body: JSON.stringify(assetPayload(input)) }),
+  updateAsset: (id, input) => http(`/assets/${id}`, { method: 'PATCH', body: JSON.stringify(assetPayload(input)) }),
   deleteAsset: (id) => http(`/assets/${id}`, { method: 'DELETE' }),
 
   listReminders: () => http('/reminders'),

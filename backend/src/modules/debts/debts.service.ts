@@ -1,6 +1,8 @@
 import { Prisma, type Debt } from '@prisma/client';
 import { prisma } from '@/config/prisma';
 import { centsToUsd, fmtDayMon, ownerToLabel, usdToCents } from '@/lib/present';
+import { amountsFromCurrency, crcOrFallback } from '@/lib/fxAmounts';
+import { getDailyFxRate } from '@/lib/bccrFx';
 import { AppError } from '@/lib/AppError';
 import type { CreateDebtInput, PaymentInput, UpdateDebtInput } from './debts.schemas';
 
@@ -11,9 +13,16 @@ function mapDebt(d: Debt) {
     id: d.id,
     name: d.name,
     issuer: d.issuer,
-    paid: centsToUsd(d.paidCents),
-    total: centsToUsd(d.totalCents),
-    monthly: centsToUsd(d.monthlyCents),
+    paid: centsToUsd(d.paidCents), // USD
+    total: centsToUsd(d.totalCents), // USD (canónico)
+    monthly: centsToUsd(d.monthlyCents), // USD (canónico)
+    // colones: si es una deuda previa sin valor, se deriva con el TC de respaldo.
+    totalCrc: crcOrFallback(d.totalCrc, d.totalCents),
+    monthlyCrc: crcOrFallback(d.monthlyCrc, d.monthlyCents),
+    currency: d.currency ?? 'USD', // moneda en que se ingresó (previas: USD)
+    fxBuy: d.fxBuy ?? null,
+    fxSell: d.fxSell ?? null,
+    fxDate: d.fxDate ? d.fxDate.toISOString() : null,
     rate: d.rate ?? '—',
     due: fmtDayMon(d.dueDate),
     owner: ownerToLabel[d.ownerKey],
@@ -32,14 +41,26 @@ export const debtsService = {
   },
 
   async create(accountId: string, input: CreateDebtInput) {
+    // Congela el TC del día (una deuda se valora al momento de crearla).
+    const fx = await getDailyFxRate();
+    const currency = input.currency ?? 'USD';
+    // Deuda no es ingreso/gasto → se usa el TC de venta (fx.sell).
+    const totals = amountsFromCurrency(input.total, currency, fx.sell);
+    const monthly = amountsFromCurrency(input.monthly, currency, fx.sell);
     const d = await prisma.debt.create({
       data: {
         accountId,
         name: input.name,
         issuer: input.issuer,
         ownerKey: labelToOwner[input.owner],
-        totalCents: usdToCents(input.total),
-        monthlyCents: usdToCents(input.monthly),
+        totalCents: totals.cents,
+        totalCrc: totals.crc,
+        monthlyCents: monthly.cents,
+        monthlyCrc: monthly.crc,
+        currency,
+        fxBuy: fx.buy,
+        fxSell: fx.sell,
+        fxDate: fx.date,
         rate: input.rate ?? null,
         icon: input.icon ?? 'credit-card',
       },
@@ -54,10 +75,33 @@ export const debtsService = {
     if (input.name !== undefined) data.name = input.name;
     if (input.issuer !== undefined) data.issuer = input.issuer;
     if (input.owner !== undefined) data.ownerKey = labelToOwner[input.owner];
-    if (input.total !== undefined) data.totalCents = usdToCents(input.total);
-    if (input.monthly !== undefined) data.monthlyCents = usdToCents(input.monthly);
+    if (input.currency !== undefined) data.currency = input.currency;
     if (input.rate !== undefined) data.rate = input.rate;
     if (input.icon !== undefined) data.icon = input.icon;
+
+    // Recalcula montos si cambió total/cuota/moneda. Reusa el TC ya congelado; si es una
+    // deuda vieja sin TC, toma el del día y lo congela (mismo criterio que Movimientos).
+    if (input.total !== undefined || input.monthly !== undefined || input.currency !== undefined) {
+      const currency = (input.currency ?? found.currency ?? 'USD') as 'USD' | 'CRC';
+      let sell = found.fxSell;
+      if (sell == null) {
+        const fx = await getDailyFxRate();
+        sell = fx.sell;
+        data.fxBuy = fx.buy;
+        data.fxSell = fx.sell;
+        data.fxDate = fx.date;
+      }
+      const totalInCur =
+        input.total ?? (currency === 'CRC' ? (found.totalCrc ?? 0) : centsToUsd(found.totalCents));
+      const monthlyInCur =
+        input.monthly ?? (currency === 'CRC' ? (found.monthlyCrc ?? 0) : centsToUsd(found.monthlyCents));
+      const totals = amountsFromCurrency(totalInCur, currency, sell);
+      const monthly = amountsFromCurrency(monthlyInCur, currency, sell);
+      data.totalCents = totals.cents;
+      data.totalCrc = totals.crc;
+      data.monthlyCents = monthly.cents;
+      data.monthlyCrc = monthly.crc;
+    }
     const d = await prisma.debt.update({ where: { id }, data });
     return mapDebt(d);
   },

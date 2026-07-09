@@ -217,9 +217,15 @@ model Debt {
   name         String
   issuer       String
   ownerKey     OwnerKey  @default(pareja) @map("owner_key")
-  totalCents   Int       @map("total_cents")
+  totalCents   Int       @map("total_cents") // valor en USD (centavos), canónico
+  totalCrc     Int?      @map("total_crc") // total en colones (enteros); null en deudas previas
   paidCents    Int       @default(0) @map("paid_cents")
-  monthlyCents Int       @map("monthly_cents")
+  monthlyCents Int       @map("monthly_cents") // cuota en USD (centavos)
+  monthlyCrc   Int?      @map("monthly_crc") // cuota en colones; null en deudas previas
+  currency     Currency? @map("currency") // moneda en la que se ingresó; null en deudas previas
+  fxBuy        Float?    @map("fx_buy") // TC compra congelado al crear
+  fxSell       Float?    @map("fx_sell") // TC venta congelado al crear (se usa para deudas)
+  fxDate       DateTime? @map("fx_date") // fecha/hora del TC usado
   rate         String?
   dueDate      DateTime? @map("due_date")
   icon         String    @default("credit-card")
@@ -255,7 +261,12 @@ model Reminder {
   accountId    String         @map("account_id") @db.ObjectId
   name         String
   issuer       String
-  amountCents  Int            @map("amount_cents")
+  amountCents  Int            @map("amount_cents") // valor en USD (centavos), canónico
+  amountCrc    Int?           @map("amount_crc") // monto en colones; null en recordatorios previos
+  currency     Currency?      @map("currency") // moneda en la que se ingresó; null en previos
+  fxBuy        Float?         @map("fx_buy") // TC compra congelado al crear
+  fxSell       Float?         @map("fx_sell") // TC venta congelado al crear (se usa para recordatorios)
+  fxDate       DateTime?      @map("fx_date") // fecha/hora del TC usado
   dueDate      DateTime       @map("due_date")
   status         ReminderStatus @default(pending)
   emailEnabled   Boolean        @default(true) @map("email_enabled")
@@ -271,15 +282,20 @@ model Reminder {
 }
 
 model Asset {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  accountId   String   @map("account_id") @db.ObjectId
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  accountId   String    @map("account_id") @db.ObjectId
   name        String
-  amountCents Int      @map("amount_cents")
-  icon        String   @default("banknote")
+  amountCents Int       @map("amount_cents") // valor en USD (centavos), canónico; negativo = pasivo
+  amountCrc   Int?      @map("amount_crc") // monto en colones; null en activos previos
+  currency    Currency? @map("currency") // moneda en la que se ingresó; null en previos
+  fxBuy       Float?    @map("fx_buy") // TC compra congelado al crear
+  fxSell      Float?    @map("fx_sell") // TC venta congelado al crear (se usa para activos)
+  fxDate      DateTime? @map("fx_date") // fecha/hora del TC usado
+  icon        String    @default("banknote")
   color       String
-  isAsset     Boolean  @default(true) @map("is_asset")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  isAsset     Boolean   @default(true) @map("is_asset")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
