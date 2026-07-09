@@ -77,3 +77,32 @@ export async function http<T>(path: string, init: RequestInit = {}, retry = true
   const json = await res.json().catch(() => ({}));
   return (json.data ?? json) as T; // el backend responde { data }
 }
+
+/**
+ * Descarga un archivo desde un endpoint PROTEGIDO. No sirve un `<a href>` simple porque el
+ * endpoint exige `Authorization: Bearer`. Hace fetch con el token, toma `response.blob()` y
+ * dispara la descarga con un `<a download>` temporal. En 401 reintenta una vez tras refrescar.
+ */
+export async function downloadFile(path: string, filename: string, retry = true): Promise<void> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: { ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+  });
+
+  if (res.status === 401 && retry) {
+    const refreshed = await tryRefresh();
+    if (refreshed) return downloadFile(path, filename, false);
+  }
+  if (!res.ok) {
+    throw new Error(`No se pudo descargar el archivo (HTTP ${res.status}).`);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
