@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "backfill:fx": "tsx prisma/backfill-fx.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
