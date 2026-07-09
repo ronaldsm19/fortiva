@@ -21,6 +21,7 @@
     { "source": "/(.*)", "destination": { "type": "service", "service": "frontend" } }
   ],
   "crons": [
-    { "path": "/api/v1/jobs/reminders", "schedule": "0 8 * * *" }
+    { "path": "/api/v1/jobs/reminders", "schedule": "0 8 * * *" },
+    { "path": "/api/v1/jobs/fx-snapshot", "schedule": "0 13 * * *" }
   ]
 }

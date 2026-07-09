@@ -4,7 +4,7 @@ import {
   centsToUsd, fmtDayMon, MESES, ownerToLabel, scopeToLabel, usdToCents, SAVINGS_CATEGORIES,
 } from '@/lib/present';
 import { AppError } from '@/lib/AppError';
-import { getFxRates } from '@/lib/bccrFx';
+import { getDailyFxRate } from '@/lib/bccrFx';
 import { env } from '@/config/env';
 import type { CreateMovementInput, UpdateMovementInput } from './movements.schemas';
 
@@ -69,7 +69,7 @@ export const movementsService = {
     const category = input.categoryName
       ? await prisma.category.findFirst({ where: { accountId, name: input.categoryName } })
       : null;
-    const fx = await getFxRates();
+    const fx = await getDailyFxRate();
     const currency = input.currency ?? 'USD';
     const { amountCents, amountCrc } = computeAmounts(input.amount, currency, input.type, fx.buy, fx.sell);
     const m = await prisma.movement.create({
@@ -120,7 +120,7 @@ export const movementsService = {
       let buy = found.fxBuy;
       let sell = found.fxSell;
       if (buy == null || sell == null) {
-        const fx = await getFxRates();
+        const fx = await getDailyFxRate();
         buy = fx.buy;
         sell = fx.sell;
         data.fxBuy = fx.buy;
