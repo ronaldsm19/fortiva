@@ -32,6 +32,14 @@ const schema = z.object({
 
   // TC (colones por USD) de respaldo si el BCCR no responde al crear un movimiento.
   FX_FALLBACK: z.coerce.number().default(505),
+
+  // Store compartido para el rate limit (opcional, ver issue #2). Sin esto, en serverless
+  // el contador vive en memoria por instancia y el límite NO es global. Dos opciones:
+  //   - REDIS_URL: Redis clásico por TCP (también la URL rediss:// de Upstash).
+  //   - UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN: Upstash por REST (Vercel).
+  REDIS_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

@@ -92,6 +92,16 @@ las variables son **compartidas** por ambos servicios; cada uno usa las que nece
 | `TRIAL_DAYS` | `7` | Opcional. |
 | `CRON_SECRET` | *(cadena aleatoria)* | **Recomendada.** Vercel la envía sola al cron y así protege el endpoint. |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | | Opcionales. Sin ellas no se envían correos (no falla). |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | `https://xxxx.upstash.io` + token | **Recomendada en Vercel.** Store compartido del rate limit por REST (sin conexión persistente). Ver nota abajo. |
+| `REDIS_URL` | `rediss://…` / `redis://…` | Alternativa a Upstash REST: Redis clásico por TCP (ioredis). |
+
+> **Rate limit global (issue #2).** El rate limit (`/api` a 300/15 min y `/api/v1/auth/login`
+> + `/register` a 10/15 min) usa por defecto un store **en memoria por instancia**. Como
+> Vercel escala a varias instancias, sin un store compartido el límite **no es global**.
+> Define **una** de las dos opciones para que el contador sea global entre instancias:
+> Upstash REST (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`, lo natural en Vercel)
+> **o** `REDIS_URL`. Si no defines ninguna, la API arranca igual (con un `console.warn`) pero
+> el límite es solo por instancia — aceptable en local, no en producción.
 
 ### Frontend (se inyectan en el **build** de Vite)
 
