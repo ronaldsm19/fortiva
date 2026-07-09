@@ -10,6 +10,15 @@ import type { CreateMovementInput, UpdateMovementInput } from './movements.schem
 
 type MovementWithCat = Prisma.MovementGetPayload<{ include: { category: true } }>;
 
+/**
+ * Valor en colones de un movimiento para las sumas (KPIs/serie/reportes): usa el
+ * `amountCrc` congelado; si falta (movimientos previos), lo deriva con el TC de respaldo.
+ * Mismo criterio que `mapMovement` para que los totales cuadren entre pantallas.
+ */
+function crcOf(m: { amountCrc: number | null; amountCents: number }): number {
+  return m.amountCrc ?? Math.round(centsToUsd(m.amountCents) * env.FX_FALLBACK);
+}
+
 function mapMovement(m: MovementWithCat) {
   return {
     id: m.id,
@@ -18,7 +27,7 @@ function mapMovement(m: MovementWithCat) {
     type: m.type,
     amount: centsToUsd(m.amountCents), // USD
     // colones: si es un movimiento previo sin valor, se deriva con el TC de respaldo.
-    amountCrc: m.amountCrc ?? Math.round(centsToUsd(m.amountCents) * env.FX_FALLBACK),
+    amountCrc: crcOf(m),
     currency: m.currency ?? 'USD', // moneda en que se ingresó (previos: USD)
     fxBuy: m.fxBuy ?? null,
     fxSell: m.fxSell ?? null,
@@ -144,17 +153,30 @@ export const movementsService = {
     await prisma.movement.delete({ where: { id } });
   },
 
-  /** KPIs del dashboard (ingresos, gastos, disponible, ahorro) en USD. */
+  /**
+   * KPIs del dashboard (ingresos, gastos, disponible, ahorro).
+   * Devuelve el total en USD y también en COLONES (sumando `amountCrc` congelado por
+   * movimiento, con el mismo fallback que `mapMovement`) para que el Panel en ₡ cuadre
+   * con el total de la página de Movimientos.
+   */
   async summary(accountId: string, range?: Range) {
     const where: Prisma.MovementWhereInput = { accountId };
     if (range) where.occurredOn = range;
     const rows = await prisma.movement.findMany({ where, include: { category: true } });
     let ingresos = 0, gastos = 0, ahorro = 0;
+    let ingresosCrc = 0, gastosCrc = 0, ahorroCrc = 0;
     for (const r of rows) {
-      if (r.type === 'income') ingresos += r.amountCents;
-      else {
+      const crc = crcOf(r);
+      if (r.type === 'income') {
+        ingresos += r.amountCents;
+        ingresosCrc += crc;
+      } else {
         gastos += r.amountCents;
-        if (r.category && SAVINGS_CATEGORIES.includes(r.category.name)) ahorro += r.amountCents;
+        gastosCrc += crc;
+        if (r.category && SAVINGS_CATEGORIES.includes(r.category.name)) {
+          ahorro += r.amountCents;
+          ahorroCrc += crc;
+        }
       }
     }
     return {
@@ -162,18 +184,29 @@ export const movementsService = {
       gastos: centsToUsd(gastos),
       disponible: centsToUsd(ingresos - gastos),
       ahorro: centsToUsd(ahorro),
+      // Colones (TC histórico por movimiento).
+      ingresosCrc,
+      gastosCrc,
+      disponibleCrc: ingresosCrc - gastosCrc,
+      ahorroCrc,
     };
   },
 
   /** Serie de los últimos N meses (ingreso/gasto por mes) terminando en refMonth/refYear. */
   async series(accountId: string, months: number, refMonth?: number, refYear?: number) {
     const rows = await prisma.movement.findMany({ where: { accountId } });
-    const bucket = new Map<string, { i: number; g: number }>();
+    const bucket = new Map<string, { i: number; g: number; iCrc: number; gCrc: number }>();
     for (const r of rows) {
       const k = `${r.occurredOn.getUTCFullYear()}-${r.occurredOn.getUTCMonth()}`;
-      const b = bucket.get(k) ?? { i: 0, g: 0 };
-      if (r.type === 'income') b.i += r.amountCents;
-      else b.g += r.amountCents;
+      const b = bucket.get(k) ?? { i: 0, g: 0, iCrc: 0, gCrc: 0 };
+      const crc = crcOf(r);
+      if (r.type === 'income') {
+        b.i += r.amountCents;
+        b.iCrc += crc;
+      } else {
+        b.g += r.amountCents;
+        b.gCrc += crc;
+      }
       bucket.set(k, b);
     }
     const now = new Date();
@@ -182,8 +215,9 @@ export const movementsService = {
     const out = [];
     for (let k = months - 1; k >= 0; k--) {
       const dt = new Date(Date.UTC(endYear, endMonth - k, 1));
-      const b = bucket.get(`${dt.getUTCFullYear()}-${dt.getUTCMonth()}`) ?? { i: 0, g: 0 };
-      out.push({ m: MESES[dt.getUTCMonth()], i: centsToUsd(b.i), g: centsToUsd(b.g) });
+      const b = bucket.get(`${dt.getUTCFullYear()}-${dt.getUTCMonth()}`) ?? { i: 0, g: 0, iCrc: 0, gCrc: 0 };
+      // USD (i/g) + colones (iCrc/gCrc) con TC histórico por movimiento.
+      out.push({ m: MESES[dt.getUTCMonth()], i: centsToUsd(b.i), g: centsToUsd(b.g), iCrc: b.iCrc, gCrc: b.gCrc });
     }
     return out;
   },

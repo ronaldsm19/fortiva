@@ -5,14 +5,18 @@ import { IncomeExpenseChart } from '@/components/IncomeExpenseChart';
 import { ProgressBar } from '@/components/ProgressBar';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useMonth } from '@/context/MonthContext';
+import { money } from '@/lib/format';
 import { service } from '@/services';
 import type { MonthPoint, TopCategory } from '@/services/types';
 
 export function Reporte() {
-  const { format } = useCurrency();
+  const { currency, format } = useCurrency();
   const { year } = useMonth();
   const [series, setSeries] = useState<MonthPoint[]>([]);
   const [cats, setCats] = useState<TopCategory[]>([]);
+  const isCrc = currency === 'CRC';
+  // En ₡ muestra el valor en colones del backend (TC histórico por movimiento); en USD, sin cambios.
+  const show = (usd: number, crc?: number) => (isCrc ? money(crc ?? 0, 'CRC') : format(usd));
 
   useEffect(() => {
     service.getAnnualSeries(year).then(setSeries);
@@ -22,14 +26,20 @@ export function Reporte() {
   const kpis = useMemo(() => {
     const totIn = series.reduce((a, d) => a + d.i, 0);
     const totOut = series.reduce((a, d) => a + d.g, 0);
-    const rate = totIn ? Math.round(((totIn - totOut) / totIn) * 100) : 0;
+    const totInCrc = series.reduce((a, d) => a + (d.iCrc ?? 0), 0);
+    const totOutCrc = series.reduce((a, d) => a + (d.gCrc ?? 0), 0);
+    // La tasa de ahorro es un ratio: se calcula sobre la moneda activa para que cuadre con lo mostrado.
+    const baseIn = isCrc ? totInCrc : totIn;
+    const baseOut = isCrc ? totOutCrc : totOut;
+    const rate = baseIn ? Math.round(((baseIn - baseOut) / baseIn) * 100) : 0;
     return [
-      { label: `Ingresos ${year}`, value: format(totIn), color: 'var(--pos)' },
-      { label: `Gastos ${year}`, value: format(totOut), color: 'var(--neg)' },
-      { label: 'Ahorro acumulado', value: format(totIn - totOut), color: 'var(--accent)' },
+      { label: `Ingresos ${year}`, value: show(totIn, totInCrc), color: 'var(--pos)' },
+      { label: `Gastos ${year}`, value: show(totOut, totOutCrc), color: 'var(--neg)' },
+      { label: 'Ahorro acumulado', value: show(totIn - totOut, totInCrc - totOutCrc), color: 'var(--accent)' },
       { label: 'Tasa de ahorro', value: `${rate}%`, color: 'var(--gold)' },
     ];
-  }, [series, format, year]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [series, isCrc, format, year]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -64,7 +74,7 @@ export function Reporte() {
               <div className="mb-1.5 flex items-center justify-between text-[13.5px]">
                 <span className="font-semibold">{c.name}</span>
                 <span className="fnum text-text-2">
-                  {format(c.amount)} · <b className="text-text">{c.pct}%</b>
+                  {show(c.amount, c.amountCrc)} · <b className="text-text">{c.pct}%</b>
                 </span>
               </div>
               <ProgressBar value={c.pct} color={c.color} />

@@ -79,20 +79,24 @@ export interface Asset {
 
 export interface MonthPoint {
   m: string;
-  i: number; // income
-  g: number; // gasto
+  i: number; // income (USD)
+  g: number; // gasto (USD)
+  iCrc?: number; // income en colones (TC histórico por movimiento)
+  gCrc?: number; // gasto en colones (TC histórico por movimiento)
 }
 
 export interface TopCategory {
   name: string;
-  amount: number;
+  amount: number; // USD
+  amountCrc?: number; // colones (TC histórico por movimiento)
   pct: number;
   color: string;
 }
 
 export interface Kpi {
   label: string;
-  value: number;
+  value: number; // USD
+  valueCrc?: number; // colones (TC histórico por movimiento)
   icon: string;
   color: string;
   bg: string;

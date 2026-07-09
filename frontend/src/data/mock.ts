@@ -14,6 +14,12 @@ export const ownerMeta: Record<OwnerKey, { initial: string; grad: string; color:
   Pareja: { initial: 'AL', grad: 'linear-gradient(135deg,var(--accent),var(--pos))', color: 'var(--gold)' },
 };
 
+/** TC mock (colones por USD) para derivar los montos en colones de KPIs/series/reporte. */
+const MOCK_CRC = 457;
+/** Deriva iCrc/gCrc de un punto mensual con el TC mock (colones congelados simulados). */
+const withCrc = (p: { m: string; i: number; g: number }): MonthPoint =>
+  ({ ...p, iCrc: Math.round(p.i * MOCK_CRC), gCrc: Math.round(p.g * MOCK_CRC) });
+
 /** KPIs del dashboard (mes actual). */
 export const dashboardBase = { ingresos: 5520, gastos: 3480, ahorro: 900 };
 
@@ -22,7 +28,7 @@ export const kpis: Kpi[] = [
   { label: 'Gastos', value: 3480, icon: 'arrow-up-right', color: 'var(--neg)', bg: 'var(--neg-weak)', delta: '-3% vs mes previo', deltaColor: 'var(--pos)' },
   { label: 'Disponible', value: 2040, icon: 'wallet', color: 'var(--accent)', bg: 'var(--accent-weak)', delta: '37% de ingresos', deltaColor: 'var(--text-3)' },
   { label: 'Ahorro', value: 900, icon: 'piggy-bank', color: 'var(--gold)', bg: 'color-mix(in srgb,var(--gold) 14%,transparent)', delta: 'Meta: $1,000', deltaColor: 'var(--text-3)' },
-];
+].map((k) => ({ ...k, valueCrc: Math.round(k.value * MOCK_CRC) }));
 
 /** Serie 6 meses (dashboard). */
 export const dashboardSeries: MonthPoint[] = [
@@ -32,7 +38,7 @@ export const dashboardSeries: MonthPoint[] = [
   { m: 'May', i: 5300, g: 3200 },
   { m: 'Jun', i: 5200, g: 3550 },
   { m: 'Jul', i: 5520, g: 3480 },
-];
+].map(withCrc);
 
 export const movements: Movement[] = [
   { id: 'm1', date: '05 Jul', cat: 'Salario', type: 'income', amount: 5200, desc: 'Salario mensual', scope: 'Compartido', owner: 'Pareja', icon: 'briefcase' },
@@ -90,7 +96,7 @@ export const annualSeries: MonthPoint[] = [
   { m: 'Abr', i: 4950, g: 3800 }, { m: 'May', i: 5300, g: 3200 }, { m: 'Jun', i: 5200, g: 3550 },
   { m: 'Jul', i: 5520, g: 3480 }, { m: 'Ago', i: 5000, g: 3700 }, { m: 'Sep', i: 5250, g: 3400 },
   { m: 'Oct', i: 5400, g: 3600 }, { m: 'Nov', i: 5600, g: 3900 }, { m: 'Dic', i: 6200, g: 4400 },
-];
+].map(withCrc);
 
 export const topCategories: TopCategory[] = [
   { name: 'Gastos fijos', amount: 14520, pct: 38, color: '#2456C9' },
@@ -98,7 +104,7 @@ export const topCategories: TopCategory[] = [
   { name: 'Gastos afuera', amount: 5040, pct: 13, color: '#C0503B' },
   { name: 'Fondo de seguridad', amount: 3600, pct: 9, color: '#A9822F' },
   { name: 'Educación', amount: 2160, pct: 6, color: '#7C4DBF' },
-];
+].map((c) => ({ ...c, amountCrc: Math.round(c.amount * MOCK_CRC) }));
 
 export const coupleDefault: CoupleConfig = {
   coupleMode: true,

@@ -1,10 +1,13 @@
 import { Card } from './Card';
 import { Icon } from './Icon';
 import { useCurrency } from '@/context/CurrencyContext';
+import { money } from '@/lib/format';
 import type { Kpi } from '@/services/types';
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {
-  const { format } = useCurrency();
+  const { currency, format } = useCurrency();
+  // En ₡ usa el total en colones del backend (TC histórico); en USD, sin cambios.
+  const value = currency === 'CRC' && kpi.valueCrc != null ? money(kpi.valueCrc, 'CRC') : format(kpi.value);
   return (
     <Card pad="p-[22px]">
       <div className="mb-3 flex items-center justify-between">
@@ -16,7 +19,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
           <Icon name={kpi.icon} size={18} />
         </div>
       </div>
-      <div className="fnum text-[29px] font-extrabold tracking-tight">{format(kpi.value)}</div>
+      <div className="fnum text-[29px] font-extrabold tracking-tight">{value}</div>
       <div className="mt-1 text-[12.5px] font-semibold" style={{ color: kpi.deltaColor }}>
         {kpi.delta}
       </div>
