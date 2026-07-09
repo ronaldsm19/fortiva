@@ -9,6 +9,11 @@ interface Summary {
   gastos: number;
   disponible: number;
   ahorro: number;
+  // Totales en colones (TC histórico por movimiento) — el backend los agrega.
+  ingresosCrc: number;
+  gastosCrc: number;
+  disponibleCrc: number;
+  ahorroCrc: number;
 }
 
 function buildKpis(s: Summary, series: MonthPoint[]): Kpi[] {
@@ -21,10 +26,10 @@ function buildKpis(s: Summary, series: MonthPoint[]): Kpi[] {
   };
   const dispPct = s.ingresos ? Math.round((s.disponible / s.ingresos) * 100) : 0;
   return [
-    { label: 'Ingresos', value: s.ingresos, icon: 'arrow-down-left', color: 'var(--pos)', bg: 'var(--pos-weak)', delta: last && prev ? delta(last.i, prev.i) : 'vs mes previo', deltaColor: 'var(--pos)' },
-    { label: 'Gastos', value: s.gastos, icon: 'arrow-up-right', color: 'var(--neg)', bg: 'var(--neg-weak)', delta: last && prev ? delta(last.g, prev.g) : 'vs mes previo', deltaColor: 'var(--pos)' },
-    { label: 'Disponible', value: s.disponible, icon: 'wallet', color: 'var(--accent)', bg: 'var(--accent-weak)', delta: `${dispPct}% de ingresos`, deltaColor: 'var(--text-3)' },
-    { label: 'Ahorro', value: s.ahorro, icon: 'piggy-bank', color: 'var(--gold)', bg: 'color-mix(in srgb,var(--gold) 14%,transparent)', delta: 'Meta: $1,000', deltaColor: 'var(--text-3)' },
+    { label: 'Ingresos', value: s.ingresos, valueCrc: s.ingresosCrc, icon: 'arrow-down-left', color: 'var(--pos)', bg: 'var(--pos-weak)', delta: last && prev ? delta(last.i, prev.i) : 'vs mes previo', deltaColor: 'var(--pos)' },
+    { label: 'Gastos', value: s.gastos, valueCrc: s.gastosCrc, icon: 'arrow-up-right', color: 'var(--neg)', bg: 'var(--neg-weak)', delta: last && prev ? delta(last.g, prev.g) : 'vs mes previo', deltaColor: 'var(--pos)' },
+    { label: 'Disponible', value: s.disponible, valueCrc: s.disponibleCrc, icon: 'wallet', color: 'var(--accent)', bg: 'var(--accent-weak)', delta: `${dispPct}% de ingresos`, deltaColor: 'var(--text-3)' },
+    { label: 'Ahorro', value: s.ahorro, valueCrc: s.ahorroCrc, icon: 'piggy-bank', color: 'var(--gold)', bg: 'color-mix(in srgb,var(--gold) 14%,transparent)', delta: 'Meta: $1,000', deltaColor: 'var(--text-3)' },
   ];
 }
 
