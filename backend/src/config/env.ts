@@ -39,6 +39,14 @@ const schema = z.object({
   // `getFxRateForDate` cae al TC del día. Alta del token documentada en DEPLOY.md.
   BCCR_WS_EMAIL: z.string().optional(),
   BCCR_WS_TOKEN: z.string().optional(),
+
+  // Store compartido para el rate limit (opcional, ver issue #2). Sin esto, en serverless
+  // el contador vive en memoria por instancia y el límite NO es global. Dos opciones:
+  //   - REDIS_URL: Redis clásico por TCP (también la URL rediss:// de Upstash).
+  //   - UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN: Upstash por REST (Vercel).
+  REDIS_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

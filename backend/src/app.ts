@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { env } from '@/config/env';
+import { apiLimiter, authLimiter } from '@/lib/rateLimit';
 import { openApiSpec } from '@/config/swagger';
 import { errorHandler, notFoundHandler } from '@/middlewares/error.middleware';
 import { authRoutes } from '@/modules/auth/auth.routes';
@@ -26,11 +26,14 @@ export function createApp() {
   app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
   app.use(express.json());
 
-  // Rate limit básico sobre la API.
-  app.use(
-    '/api',
-    rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }),
-  );
+  // Rate limit general sobre la API. Con Redis configurado el contador es global entre
+  // instancias de Vercel; sin Redis cae a MemoryStore por instancia (ver lib/rateLimit).
+  app.use('/api', apiLimiter);
+
+  // Límite más estricto en las rutas sensibles de auth (fuerza bruta / alta de cuentas).
+  // Se monta en los paths concretos y ANTES del router v1 para que corra antes del handler,
+  // sin alterar el orden de montaje de los routers en v1.
+  app.use(['/api/v1/auth/login', '/api/v1/auth/register'], authLimiter);
 
   // Healthcheck. En Vercel solo llega a la función lo que empieza con /api, por eso
   // se expone también en /api/health (además de /health para el server local).
