@@ -49,12 +49,14 @@ const FETCH_TIMEOUT_MS = 6000;
 let cache: { rates: FxRates; at: number } | null = null;
 
 /** "1.451,60" → 1451.6 (formato de Costa Rica: punto de miles, coma decimal). */
-function parseCrNumber(s: string): number {
+// Exportada para tests unitarios (parseo puro, sin red).
+export function parseCrNumber(s: string): number {
   return Number(s.trim().replace(/\./g, '').replace(',', '.'));
 }
 
 /** Extrae compra/venta/fecha de la fila de ARI. Devuelve null si no la encuentra. */
-function parseAri(html: string): Omit<FxRates, 'source'> | null {
+// Exportada para tests unitarios: se prueba contra HTML fijo, sin consultar el BCCR.
+export function parseAri(html: string): Omit<FxRates, 'source'> | null {
   const idx = html.indexOf('ARI Casa de Cambio Internacional');
   if (idx === -1) return null;
   const slice = html.slice(idx, idx + 800);
@@ -237,7 +239,8 @@ function unescapeXml(s: string): string {
  * toleramos también coma decimal por robustez. Los TC del dólar (~ cientos) no traen
  * separador de miles.
  */
-function parseWsNumber(s: string): number {
+// Exportada para tests unitarios (parseo puro del valor del web service).
+export function parseWsNumber(s: string): number {
   const t = s.trim();
   if (t === '') return NaN;
   if (t.includes(',') && t.includes('.')) return Number(t.replace(/\./g, '').replace(',', '.'));
@@ -250,7 +253,8 @@ function parseWsNumber(s: string): number {
  * con valor válido. Así resolvemos "el último dato ≤ la fecha pedida" aunque el rango
  * incluya fines de semana/feriados sin valor. Devuelve null si no hay ningún dato.
  */
-function parseLatestFromSeries(rawXml: string): { value: number; date: Date } | null {
+// Exportada para tests unitarios: se prueba contra XML fijo del web service, sin red.
+export function parseLatestFromSeries(rawXml: string): { value: number; date: Date } | null {
   const xml = unescapeXml(rawXml);
   const blocks = xml.matchAll(
     /<INGC011_CAT_INDICADORECONOMIC\b[^>]*>([\s\S]*?)<\/INGC011_CAT_INDICADORECONOMIC>/gi,

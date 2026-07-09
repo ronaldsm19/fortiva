@@ -43,7 +43,8 @@ function mapMovement(m: MovementWithCat) {
  * A partir del monto ingresado (en `currency`), calcula el valor en USD (centavos) y en
  * colones (enteros) con el TC: **compra para ingresos, venta para gastos**.
  */
-function computeAmounts(
+// Exportada para tests unitarios (cálculo puro, sin BD ni red).
+export function computeAmounts(
   amount: number,
   currency: 'USD' | 'CRC',
   type: 'income' | 'expense',
