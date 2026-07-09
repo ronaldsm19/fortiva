@@ -4,7 +4,7 @@ import {
   centsToUsd, fmtDayMon, MESES, ownerToLabel, scopeToLabel, usdToCents, SAVINGS_CATEGORIES,
 } from '@/lib/present';
 import { AppError } from '@/lib/AppError';
-import { getDailyFxRate } from '@/lib/bccrFx';
+import { getDailyFxRate, getFxRateForDate, type FxRates } from '@/lib/bccrFx';
 import { env } from '@/config/env';
 import type { CreateMovementInput, UpdateMovementInput } from './movements.schemas';
 
@@ -59,6 +59,20 @@ function computeAmounts(
   return { amountCents: usdToCents(amount), amountCrc: Math.round(amount * rate) };
 }
 
+/** true si el día (en UTC) de `d` es anterior al día de hoy: es una fecha pasada. */
+function isPastUtcDay(d: Date): boolean {
+  return d.toISOString().slice(0, 10) < new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * TC a congelar según la fecha del movimiento (issue #1): si `occurredOn` es una fecha
+ * PASADA, el TC HISTÓRICO de esa fecha vía el web service del BCCR; si es hoy, el TC del
+ * día (snapshot). Ambos caminos nunca lanzan y traen su propio fallback.
+ */
+function fxForOccurredOn(occurredOn: Date): Promise<FxRates> {
+  return isPastUtcDay(occurredOn) ? getFxRateForDate(occurredOn) : getDailyFxRate();
+}
+
 type Range = { gte: Date; lt: Date } | undefined;
 
 export const movementsService = {
@@ -78,7 +92,9 @@ export const movementsService = {
     const category = input.categoryName
       ? await prisma.category.findFirst({ where: { accountId, name: input.categoryName } })
       : null;
-    const fx = await getDailyFxRate();
+    const occurredOn = input.occurredOn ? new Date(input.occurredOn) : new Date();
+    // Congela el TC de la FECHA del movimiento: histórico si es pasada, del día si es hoy.
+    const fx = await fxForOccurredOn(occurredOn);
     const currency = input.currency ?? 'USD';
     const { amountCents, amountCrc } = computeAmounts(input.amount, currency, input.type, fx.buy, fx.sell);
     const m = await prisma.movement.create({
@@ -93,7 +109,7 @@ export const movementsService = {
         fxSell: fx.sell,
         fxDate: fx.date,
         description: input.description,
-        occurredOn: input.occurredOn ? new Date(input.occurredOn) : new Date(),
+        occurredOn,
         scope: input.scope,
         ownerKey: input.ownerKey,
         icon: input.icon ?? 'wallet',
@@ -121,15 +137,17 @@ export const movementsService = {
       data.categoryId = cat?.id ?? null;
     }
 
-    // Recalcula montos si cambió monto/moneda/tipo. Usa el TC ya guardado (histórico);
-    // si es un movimiento viejo sin TC, toma el actual y lo congela.
+    // Recalcula montos si cambió monto/moneda/tipo. Usa el TC ya guardado (congelado);
+    // si es un movimiento viejo sin TC, toma el de su FECHA (histórico si es pasada) y lo
+    // congela.
     if (input.amount !== undefined || input.currency !== undefined || input.type !== undefined) {
       const type = input.type ?? found.type;
       const currency = (input.currency ?? found.currency ?? 'USD') as 'USD' | 'CRC';
       let buy = found.fxBuy;
       let sell = found.fxSell;
       if (buy == null || sell == null) {
-        const fx = await getDailyFxRate();
+        const occurredOn = input.occurredOn ? new Date(input.occurredOn) : found.occurredOn;
+        const fx = await fxForOccurredOn(occurredOn);
         buy = fx.buy;
         sell = fx.sell;
         data.fxBuy = fx.buy;

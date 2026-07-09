@@ -92,6 +92,8 @@ las variables son **compartidas** por ambos servicios; cada uno usa las que nece
 | `TRIAL_DAYS` | `7` | Opcional. |
 | `CRON_SECRET` | *(cadena aleatoria)* | **Recomendada.** Vercel la envía sola al cron y así protege el endpoint. |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | | Opcionales. Sin ellas no se envían correos (no falla). |
+| `FX_FALLBACK` | `505` | Opcional. TC (₡/USD) de respaldo si el BCCR no responde. |
+| `BCCR_WS_EMAIL` / `BCCR_WS_TOKEN` | *(correo + token del BCCR)* | Opcionales. Habilitan el **TC histórico** de movimientos con fecha pasada. Sin ellas, esos movimientos usan el TC del día. Ver [«Token del BCCR» abajo](#token-del-bccr-tc-histórico). |
 
 ### Frontend (se inyectan en el **build** de Vite)
 
@@ -102,6 +104,27 @@ las variables son **compartidas** por ambos servicios; cada uno usa las que nece
 | `VITE_CRC_RATE` | `525` | Opcional. |
 
 > Genera secretos con: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+
+### Token del BCCR (TC histórico)
+
+Un movimiento con **fecha pasada** debe guardarse con el TC de **esa** fecha, no con el de
+hoy. La ventanilla del BCCR solo publica el TC actual, así que para fechas pasadas Fortiva
+consulta el **web service oficial de indicadores económicos** del BCCR (indicadores
+**317 = compra** y **318 = venta** del dólar), que sí devuelve series históricas.
+
+Ese web service requiere un **correo + token gratuitos**. Para obtenerlos:
+
+1. Entra a **<https://www.bccr.fi.cr/indicadores-economicos/servicio-web>** (Indicadores
+   Económicos → *Servicio Web*).
+2. Completa el formulario de **suscripción** con tu **correo electrónico**.
+3. El BCCR te envía por correo un **token** de acceso asociado a ese correo.
+4. Configura ambas variables en Vercel (Production/Preview):
+   - `BCCR_WS_EMAIL` = el correo que registraste.
+   - `BCCR_WS_TOKEN` = el token que te enviaron.
+
+**Son opcionales.** Si no las defines (o el web service falla), los movimientos con fecha
+pasada caen al **TC del día** sin bloquear el guardado; los movimientos de hoy no usan este
+servicio (siguen tomando el snapshot del día de la ventanilla de ARI).
 
 ---
 

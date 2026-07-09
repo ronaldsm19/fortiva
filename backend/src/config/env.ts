@@ -32,6 +32,13 @@ const schema = z.object({
 
   // TC (colones por USD) de respaldo si el BCCR no responde al crear un movimiento.
   FX_FALLBACK: z.coerce.number().default(505),
+
+  // Web service oficial del BCCR para el TC HISTÓRICO por fecha (issue #1): un movimiento
+  // con fecha pasada usa el TC de ESA fecha (indicadores 317 compra / 318 venta). Requiere
+  // registrarse en el BCCR para obtener el correo + token. OPCIONALES: si faltan,
+  // `getFxRateForDate` cae al TC del día. Alta del token documentada en DEPLOY.md.
+  BCCR_WS_EMAIL: z.string().optional(),
+  BCCR_WS_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
