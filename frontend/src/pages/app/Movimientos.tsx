@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { TransactionRow } from '@/components/TransactionRow';
@@ -13,6 +13,7 @@ import { money, crcOf } from '@/lib/format';
 import { useHousehold } from '@/context/HouseholdContext';
 import { useMonth } from '@/context/MonthContext';
 import { service } from '@/services';
+import { downloadFile } from '@/services/http';
 import type { Movement, OwnerKey } from '@/services/types';
 
 type Filter = 'todos' | 'ana' | 'luis' | 'pareja';
@@ -39,11 +40,28 @@ export function Movimientos() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Movement | null>(null);
   const [toDelete, setToDelete] = useState<Movement | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const load = () => {
     service.listMovements(filter, monthIdx, year).then(setMovements);
   };
   useEffect(load, [filter, monthIdx, year]);
+
+  // Exporta el CSV de los movimientos del mes/año/filtro actuales (endpoint protegido → con token).
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const mes = String(monthIdx + 1).padStart(2, '0');
+      await downloadFile(
+        `/reports/export?format=csv&year=${year}&month=${monthIdx}&owner=${filter}`,
+        `fortiva-movimientos-${year}-${mes}.csv`,
+      );
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudieron exportar los movimientos.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Totales en colones (suma real usando el TC congelado de cada movimiento).
   const totals = useMemo(() => {
@@ -74,10 +92,16 @@ export function Movimientos() {
             );
           })}
         </div>
-        <Button onClick={() => { setEditing(null); setModal(true); }}>
-          <Plus size={18} />
-          Agregar
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={handleExport} disabled={exporting}>
+            <Download size={18} />
+            {exporting ? 'Exportando…' : 'Exportar'}
+          </Button>
+          <Button onClick={() => { setEditing(null); setModal(true); }}>
+            <Plus size={18} />
+            Agregar
+          </Button>
+        </div>
       </div>
 
       {person && (

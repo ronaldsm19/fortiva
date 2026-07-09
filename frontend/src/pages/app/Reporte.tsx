@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Download } from 'lucide-react';
+import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ChartCard, LegendDot } from '@/components/ChartCard';
 import { IncomeExpenseChart } from '@/components/IncomeExpenseChart';
@@ -7,6 +9,7 @@ import { useCurrency } from '@/context/CurrencyContext';
 import { useMonth } from '@/context/MonthContext';
 import { money } from '@/lib/format';
 import { service } from '@/services';
+import { downloadFile } from '@/services/http';
 import type { MonthPoint, TopCategory } from '@/services/types';
 
 export function Reporte() {
@@ -14,7 +17,20 @@ export function Reporte() {
   const { year } = useMonth();
   const [series, setSeries] = useState<MonthPoint[]>([]);
   const [cats, setCats] = useState<TopCategory[]>([]);
+  const [exporting, setExporting] = useState(false);
   const isCrc = currency === 'CRC';
+
+  // Exporta el CSV de los movimientos del AÑO seleccionado (endpoint protegido → con token).
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await downloadFile(`/reports/export?format=csv&year=${year}`, `fortiva-movimientos-${year}.csv`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo exportar el reporte.');
+    } finally {
+      setExporting(false);
+    }
+  };
   // En ₡ muestra el valor en colones del backend (TC histórico por movimiento); en USD, sin cambios.
   const show = (usd: number, crc?: number) => (isCrc ? money(crc ?? 0, 'CRC') : format(usd));
 
@@ -43,6 +59,13 @@ export function Reporte() {
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex justify-end">
+        <Button variant="secondary" onClick={handleExport} disabled={exporting}>
+          <Download size={18} />
+          {exporting ? 'Exportando…' : 'Exportar CSV'}
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
           <Card key={k.label}>
