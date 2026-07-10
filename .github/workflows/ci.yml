@@ -1,12 +1,14 @@
 name: CI
 
-# Corre en cada push y PR hacia main para detectar errores de tipos/build
-# antes de desplegar en Vercel.
+# Corre en cada push y PR hacia main y develop para detectar errores de
+# tipos/build antes de mergear/desplegar. develop es la rama de integración:
+# los features salen de develop y sus PR apuntan a develop; main solo recibe
+# el PR de release develop->main (único deploy de producción en Vercel).
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   backend:
