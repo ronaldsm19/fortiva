@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mail, Pencil, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, Mail, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Badge } from '@/components/Badge';
@@ -25,6 +25,8 @@ export function Recordatorios() {
   useEffect(load, []);
 
   const toggle = (r: Reminder) => service.toggleReminderEmail(r.id, !r.email).then(load);
+  const togglePaid = (r: Reminder) =>
+    service.updateReminder(r.id, { status: r.status === 'pagado' ? 'pendiente' : 'pagado' }).then(load);
   const openNew = () => {
     setEditing(null);
     setModal(true);
@@ -68,6 +70,14 @@ export function Recordatorios() {
                 <Switch checked={r.email} onChange={() => toggle(r)} aria-label="Recordatorio por email" />
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => togglePaid(r)}
+                  className={`grid h-8 w-8 place-items-center rounded-full hover:bg-surface-2 ${paid ? 'text-pos' : 'text-text-3 hover:text-pos'}`}
+                  aria-label={paid ? 'Marcar como pendiente' : 'Marcar como pagado'}
+                  title={paid ? 'Marcar como pendiente' : 'Marcar como pagado'}
+                >
+                  {paid ? <RotateCcw size={15} /> : <CheckCircle2 size={15} />}
+                </button>
                 <button onClick={() => openEdit(r)} className="grid h-8 w-8 place-items-center rounded-full text-text-3 hover:bg-surface-2 hover:text-text" aria-label="Editar">
                   <Pencil size={15} />
                 </button>
