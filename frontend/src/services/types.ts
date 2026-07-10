@@ -11,7 +11,8 @@ export type Scope = 'Compartido' | 'Individual';
 
 export interface Movement {
   id: string;
-  date: string; // "05 Jul"
+  date: string; // "05 Jul" (display)
+  dateIso?: string; // "2026-07-05" — fecha ISO para prefillar el DatePicker al editar
   cat: string;
   type: MovementType;
   amount: number; // USD (canónico). En el payload de creación = monto en `currency`.

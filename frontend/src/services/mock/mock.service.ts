@@ -24,8 +24,21 @@ const fxSplit = (amount: number, currency: 'USD' | 'CRC', sell = MOCK_FX.sell) =
 /** Campos de TC congelado que se guardan al crear (mock). */
 const frozenFx = () => ({ fxBuy: MOCK_FX.buy, fxSell: MOCK_FX.sell, fxDate: new Date().toISOString() });
 
-// Estado en memoria (mutable) para simular CRUD durante la sesión.
-let movements = [...mock.movements];
+const MES_ABBR = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+/** "05 Jul" → "2026-07-05" (los datos mock son de 2026): fecha ISO para prefillar el DatePicker. */
+const isoFromDisplay = (d: string): string => {
+  const [day, mon] = d.split(' ');
+  return `2026-${String(MES_ABBR.indexOf(mon) + 1).padStart(2, '0')}-${(day ?? '01').padStart(2, '0')}`;
+};
+/** "2026-07-05" → "05 Jul" (display). */
+const displayFromIso = (iso: string): string => {
+  const [, mm, dd] = iso.split('-');
+  return `${dd} ${MES_ABBR[Number(mm) - 1] ?? 'Ene'}`;
+};
+
+// Estado en memoria (mutable) para simular CRUD durante la sesión. Los movimientos mock
+// derivan su `dateIso` de la fecha display para que el modal de edición prefille la fecha.
+let movements: Movement[] = mock.movements.map((m) => ({ ...m, dateIso: m.dateIso ?? isoFromDisplay(m.date) }));
 let system = [...mock.systemCategories];
 let custom = [...mock.customCategories];
 let debts = [...mock.debts];
@@ -56,8 +69,11 @@ export const mockService: FortivaService = {
     const rate = input.type === 'income' ? MOCK_FX.buy : MOCK_FX.sell;
     const amountUsd = cur === 'CRC' ? input.amount / rate : input.amount;
     const amountCrc = cur === 'CRC' ? Math.round(input.amount) : Math.round(input.amount * rate);
+    // El modal manda la fecha en ISO ("YYYY-MM-DD") o vacío → si falta, hoy.
+    const iso = input.date && /^\d{4}-\d{2}-\d{2}/.test(input.date) ? input.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
     const m: Movement = {
-      ...input, id: uid(), currency: cur, amount: amountUsd, amountCrc,
+      ...input, id: uid(), date: displayFromIso(iso), dateIso: iso,
+      currency: cur, amount: amountUsd, amountCrc,
       fxBuy: MOCK_FX.buy, fxSell: MOCK_FX.sell, fxDate: new Date().toISOString(),
     };
     movements = [m, ...movements];
@@ -67,6 +83,14 @@ export const mockService: FortivaService = {
     movements = movements.map((m) => {
       if (m.id !== id) return m;
       const merged: Movement = { ...m, ...input };
+      // la fecha del modal viene en ISO; sincroniza dateIso + display, o conserva la original.
+      if (input.date && /^\d{4}-\d{2}-\d{2}/.test(input.date)) {
+        merged.dateIso = input.date.slice(0, 10);
+        merged.date = displayFromIso(merged.dateIso);
+      } else if (input.date !== undefined) {
+        merged.date = m.date;
+        merged.dateIso = m.dateIso;
+      }
       // recomputa USD/colones si cambió monto, moneda o tipo (igual que el backend)
       if (input.amount !== undefined || input.currency !== undefined || input.type !== undefined) {
         const cur = merged.currency ?? 'USD';

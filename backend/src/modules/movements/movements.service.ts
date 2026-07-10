@@ -22,7 +22,8 @@ function crcOf(m: { amountCrc: number | null; amountCents: number }): number {
 function mapMovement(m: MovementWithCat) {
   return {
     id: m.id,
-    date: fmtDayMon(m.occurredOn),
+    date: fmtDayMon(m.occurredOn), // "05 Jul" (display)
+    dateIso: m.occurredOn.toISOString().slice(0, 10), // "2026-07-05" — para prefillar el DatePicker al editar
     cat: m.category?.name ?? '—',
     type: m.type,
     amount: centsToUsd(m.amountCents), // USD
