@@ -50,7 +50,7 @@ export function MovementModal({ open, onClose, onSaved, initial }: Props) {
     const initCur = initial?.currency ?? 'USD';
     setCurr(initial ? initCur : 'CRC');
     setAmount(initial ? String(initCur === 'CRC' ? (initial.amountCrc ?? 0) : initial.amount) : '');
-    setDate('');
+    setDate(initial?.dateIso ?? ''); // al editar, prefilla la fecha del movimiento
     setError('');
     service.getFxRate().then(setFx).catch(() => setFx(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
