@@ -200,6 +200,7 @@ model Movement {
   scope       Scope        @default(shared)
   ownerKey    OwnerKey     @default(pareja) @map("owner_key")
   icon        String       @default("wallet")
+  paymentAccount String?   @map("payment_account") // cuenta / medio de pago (BAC, Efectivo…); null = sin especificar
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 

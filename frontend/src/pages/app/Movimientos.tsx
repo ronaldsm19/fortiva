@@ -41,11 +41,23 @@ export function Movimientos() {
   const [editing, setEditing] = useState<Movement | null>(null);
   const [toDelete, setToDelete] = useState<Movement | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [accountFilter, setAccountFilter] = useState<string | null>(null);
 
   const load = () => {
     service.listMovements(filter, monthIdx, year).then(setMovements);
   };
   useEffect(load, [filter, monthIdx, year]);
+
+  // Cuentas / medios de pago presentes en los movimientos cargados (para filtrar por BAC, etc.).
+  const accounts = useMemo(
+    () => [...new Set(movements.map((m) => m.account).filter((a): a is string => !!a))].sort(),
+    [movements],
+  );
+  // Movimientos visibles según el filtro de cuenta (el de persona/mes ya viene aplicado del backend).
+  const visible = useMemo(
+    () => (accountFilter ? movements.filter((m) => m.account === accountFilter) : movements),
+    [movements, accountFilter],
+  );
 
   // Exporta el CSV de los movimientos del mes/año/filtro actuales (endpoint protegido → con token).
   const handleExport = async () => {
@@ -63,12 +75,12 @@ export function Movimientos() {
     }
   };
 
-  // Totales en colones (suma real usando el TC congelado de cada movimiento).
+  // Totales en colones (suma real usando el TC congelado de cada movimiento; respeta el filtro de cuenta).
   const totals = useMemo(() => {
-    const ins = movements.filter((m) => m.type === 'income').reduce((a, m) => a + crcOf(m, rate), 0);
-    const outs = movements.filter((m) => m.type === 'expense').reduce((a, m) => a + crcOf(m, rate), 0);
+    const ins = visible.filter((m) => m.type === 'income').reduce((a, m) => a + crcOf(m, rate), 0);
+    const outs = visible.filter((m) => m.type === 'expense').reduce((a, m) => a + crcOf(m, rate), 0);
     return { ins, outs, balance: ins - outs };
-  }, [movements, rate]);
+  }, [visible, rate]);
   const person = filter === 'todos' ? null : filterOwner[filter];
 
   return (
@@ -104,6 +116,27 @@ export function Movimientos() {
         </div>
       </div>
 
+      {accounts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[12px] font-semibold uppercase tracking-wide text-text-3">Cuenta</span>
+          <button
+            onClick={() => setAccountFilter(null)}
+            className={`rounded-chip px-3 py-1.5 text-[13px] transition-colors ${!accountFilter ? 'bg-accent font-bold text-accent-ink' : 'border border-border bg-surface font-semibold text-text-2 hover:text-text'}`}
+          >
+            Todas
+          </button>
+          {accounts.map((a) => (
+            <button
+              key={a}
+              onClick={() => setAccountFilter(a)}
+              className={`rounded-chip px-3 py-1.5 text-[13px] transition-colors ${accountFilter === a ? 'bg-accent font-bold text-accent-ink' : 'border border-border bg-surface font-semibold text-text-2 hover:text-text'}`}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+      )}
+
       {person && (
         <Card>
           <div className="flex items-center gap-4">
@@ -126,7 +159,7 @@ export function Movimientos() {
           <span className="w-28">De quién</span>
           <span className="w-24 text-right">Monto</span>
         </div>
-        {movements.map((m) => (
+        {visible.map((m) => (
           <TransactionRow
             key={m.id}
             m={m}
@@ -135,10 +168,10 @@ export function Movimientos() {
             onDelete={setToDelete}
           />
         ))}
-        {movements.length === 0 && (
+        {visible.length === 0 && (
           <EmptyState icon={ArrowLeftRight} title="Sin movimientos este mes" text="Agrega tu primer ingreso o gasto." />
         )}
-        {movements.length > 0 && (
+        {visible.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 border-t border-border pt-3 text-[13px]">
             <span className="mr-auto text-[12px] font-semibold uppercase tracking-wide text-text-3">
               Total en colones
