@@ -65,6 +65,7 @@ function movementPayload(input: Partial<Omit<Movement, 'id'>>) {
   if (input.cat !== undefined) p.categoryName = input.cat;
   if (input.icon !== undefined) p.icon = input.icon;
   if (input.currency !== undefined) p.currency = input.currency;
+  if (input.account !== undefined) p.account = input.account;
   // `amount` va en la moneda de `currency`; el backend calcula USD y colones con el TC.
   // `date` puede venir como ISO (input date) → occurredOn
   if (input.date && /^\d{4}-\d{2}-\d{2}/.test(input.date)) p.occurredOn = input.date;

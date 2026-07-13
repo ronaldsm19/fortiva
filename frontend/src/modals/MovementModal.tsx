@@ -32,6 +32,7 @@ export function MovementModal({ open, onClose, onSaved, initial }: Props) {
   const [date, setDate] = useState('');
   const [cats, setCats] = useState<Category[]>([]);
   const [cat, setCat] = useState('');
+  const [account, setAccount] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fx, setFx] = useState<FxRate | null>(null);
@@ -51,6 +52,7 @@ export function MovementModal({ open, onClose, onSaved, initial }: Props) {
     setCurr(initial ? initCur : 'CRC');
     setAmount(initial ? String(initCur === 'CRC' ? (initial.amountCrc ?? 0) : initial.amount) : '');
     setDate(initial?.dateIso ?? ''); // al editar, prefilla la fecha del movimiento
+    setAccount(initial?.account ?? '');
     setError('');
     service.getFxRate().then(setFx).catch(() => setFx(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,6 +74,7 @@ export function MovementModal({ open, onClose, onSaved, initial }: Props) {
         scope,
         owner,
         icon: initial?.icon ?? (type === 'income' ? 'sparkles' : 'shopping-cart'),
+        account: account.trim() || null,
       };
       if (editing) await service.updateMovement(initial!.id, payload);
       else await service.createMovement(payload);
@@ -148,6 +151,24 @@ export function MovementModal({ open, onClose, onSaved, initial }: Props) {
             ))}
           </Select>
         )}
+        <div>
+          <label className="mb-1.5 block text-[13px] font-semibold text-text-2">
+            Cuenta / medio de pago <span className="font-normal text-text-3">(opcional)</span>
+          </label>
+          <input
+            list="account-options"
+            value={account}
+            onChange={(e) => setAccount(e.target.value)}
+            placeholder="Ej. BAC, Efectivo…"
+            className="w-full rounded-input border border-border-strong bg-surface px-[14px] py-[13px] text-[14.5px] text-text outline-none transition-colors placeholder:text-text-3 focus:border-accent"
+          />
+          <datalist id="account-options">
+            <option value="BAC" />
+            <option value="Efectivo" />
+            <option value="Sinpe" />
+            <option value="BAC débito" />
+          </datalist>
+        </div>
         <div>
           <span className="mb-1.5 block text-[13px] font-semibold text-text-2">Alcance</span>
           <Segmented

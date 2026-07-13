@@ -25,6 +25,7 @@ export interface Movement {
   scope: Scope;
   owner: OwnerKey;
   icon: string;
+  account?: string | null; // cuenta / medio de pago (BAC, Efectivo…)
 }
 
 /** Tipo de cambio actual (colones por USD) — BCCR / ARI Casa de Cambio. */

@@ -14,6 +14,7 @@ export const createMovementSchema = z.object({
   ownerKey: z.enum(['ana', 'luis', 'pareja']),
   categoryName: z.string().optional(),
   icon: z.string().optional(),
+  account: z.string().max(40).optional(), // cuenta / medio de pago (BAC, Efectivo…)
 });
 
 export const updateMovementSchema = createMovementSchema.partial();
