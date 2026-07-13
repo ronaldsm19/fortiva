@@ -17,8 +17,9 @@ export const createDebtSchema = z.object({
 });
 
 export const paymentSchema = z.object({
-  amount: z.number().positive(),
+  amount: z.number().positive(), // en la moneda de `currency` (o la de la deuda)
   method: z.enum(['transfer', 'debit', 'cash', 'sinpe']).default('transfer'),
+  currency: z.enum(['USD', 'CRC']).optional(), // moneda del pago; por defecto la de la deuda
 });
 
 export const updateDebtSchema = createDebtSchema.partial();

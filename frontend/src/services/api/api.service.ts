@@ -134,7 +134,7 @@ export const apiService: FortivaService = {
   createDebt: (input) => http('/debts', { method: 'POST', body: JSON.stringify(debtPayload(input)) }),
   updateDebt: (id, input) => http(`/debts/${id}`, { method: 'PATCH', body: JSON.stringify(debtPayload(input)) }),
   deleteDebt: (id) => http(`/debts/${id}`, { method: 'DELETE' }),
-  registerPayment: (debtId, amount) => http(`/debts/${debtId}/payments`, { method: 'POST', body: JSON.stringify({ amount }) }),
+  registerPayment: (debtId, amount, currency) => http(`/debts/${debtId}/payments`, { method: 'POST', body: JSON.stringify({ amount, currency }) }),
 
   listAssets: () => http('/networth'),
   createAsset: (input) => http('/assets', { method: 'POST', body: JSON.stringify(assetPayload(input)) }),
