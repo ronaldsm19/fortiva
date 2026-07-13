@@ -31,8 +31,13 @@ export function TransactionRow({ m, showOwner = false, onEdit, onDelete }: Props
 
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-bold">{m.desc}</div>
-        <div className="text-[12.5px] text-text-3">
-          {m.cat && m.cat !== '—' ? `${m.cat} · ` : ''}{m.date}
+        <div className="flex items-center gap-1.5 text-[12.5px] text-text-3">
+          <span className="truncate">{m.cat && m.cat !== '—' ? `${m.cat} · ` : ''}{m.date}</span>
+          {m.account && (
+            <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[10.5px] font-semibold text-text-2">
+              {m.account}
+            </span>
+          )}
         </div>
       </div>
 

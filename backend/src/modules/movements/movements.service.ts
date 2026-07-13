@@ -37,6 +37,7 @@ function mapMovement(m: MovementWithCat) {
     scope: scopeToLabel[m.scope],
     owner: ownerToLabel[m.ownerKey],
     icon: m.icon,
+    account: m.paymentAccount ?? null, // cuenta / medio de pago
   };
 }
 
@@ -115,6 +116,7 @@ export const movementsService = {
         scope: input.scope,
         ownerKey: input.ownerKey,
         icon: input.icon ?? 'wallet',
+        paymentAccount: input.account?.trim() || null,
       },
       include: { category: true },
     });
@@ -132,6 +134,7 @@ export const movementsService = {
     if (input.type !== undefined) data.type = input.type;
     if (input.currency !== undefined) data.currency = input.currency;
     if (input.icon !== undefined) data.icon = input.icon;
+    if (input.account !== undefined) data.paymentAccount = input.account?.trim() || null;
     if (input.categoryName !== undefined) {
       const cat = input.categoryName
         ? await prisma.category.findFirst({ where: { accountId, name: input.categoryName } })
