@@ -169,10 +169,15 @@ export const mockService: FortivaService = {
     return delay(undefined);
   },
 
-  registerPayment: (debtId, amount) => {
-    debts = debts.map((d) =>
-      d.id === debtId ? { ...d, paid: Math.min(d.total, d.paid + amount) } : d,
-    );
+  registerPayment: (debtId, amount, currency) => {
+    debts = debts.map((d) => {
+      if (d.id !== debtId) return d;
+      // el pago viene en la moneda de la deuda; se pasa a USD con el TC congelado (venta).
+      const cur = currency ?? d.currency ?? 'USD';
+      const sell = d.fxSell ?? MOCK_FX.sell;
+      const usd = cur === 'CRC' ? amount / sell : amount;
+      return { ...d, paid: Math.min(d.total, d.paid + usd) };
+    });
     return delay(debts.find((d) => d.id === debtId) as Debt);
   },
 

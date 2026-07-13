@@ -1,6 +1,6 @@
 import { Prisma, type Debt } from '@prisma/client';
 import { prisma } from '@/config/prisma';
-import { centsToUsd, fmtDayMon, ownerToLabel, usdToCents } from '@/lib/present';
+import { centsToUsd, fmtDayMon, ownerToLabel } from '@/lib/present';
 import { amountsFromCurrency, crcOrFallback } from '@/lib/fxAmounts';
 import { getDailyFxRate } from '@/lib/bccrFx';
 import { AppError } from '@/lib/AppError';
@@ -116,7 +116,12 @@ export const debtsService = {
   async registerPayment(accountId: string, debtId: string, input: PaymentInput) {
     const debt = await prisma.debt.findFirst({ where: { id: debtId, accountId } });
     if (!debt) throw AppError.notFound('Deuda no encontrada');
-    const cents = usdToCents(input.amount);
+    // El pago va en la moneda de la deuda (o la indicada). Se convierte a centavos USD con el
+    // TC de venta CONGELADO de la deuda, para que `paidCents` quede consistente con `totalCents`
+    // (una deuda vieja sin TC congelado usa el del día).
+    const currency = (input.currency ?? debt.currency ?? 'USD') as 'USD' | 'CRC';
+    const sell = debt.fxSell ?? (await getDailyFxRate()).sell;
+    const { cents } = amountsFromCurrency(input.amount, currency, sell);
     const newPaid = Math.min(debt.totalCents, debt.paidCents + cents);
 
     await prisma.debtPayment.create({

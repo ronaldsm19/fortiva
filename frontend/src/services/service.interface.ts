@@ -33,7 +33,7 @@ export interface FortivaService {
   createDebt(input: Omit<Debt, 'id' | 'paid'>): Promise<Debt>;
   updateDebt(id: string, input: Partial<Omit<Debt, 'id' | 'paid'>>): Promise<Debt>;
   deleteDebt(id: string): Promise<void>;
-  registerPayment(debtId: string, amount: number): Promise<Debt>;
+  registerPayment(debtId: string, amount: number, currency?: 'USD' | 'CRC'): Promise<Debt>;
 
   // Patrimonio / Activos
   listAssets(): Promise<Asset[]>;
