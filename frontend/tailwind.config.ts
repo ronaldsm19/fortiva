@@ -45,7 +45,7 @@ const config: Config = {
         lg: '0 4px 14px rgba(40,33,24,.06), 0 30px 70px rgba(40,33,24,.12)',
       },
       maxWidth: {
-        app: '1240px',
+        app: '1440px',
         landing: '1180px',
       },
     },
