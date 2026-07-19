@@ -108,7 +108,7 @@ export const mockService: FortivaService = {
     return delay(undefined);
   },
 
-  listCategories: () => delay({ system, custom }),
+  listCategories: (_month, _year) => delay({ system, custom }),
 
   createCategory: (input) => {
     const c: Category = { ...input, id: uid(), kind: 'custom' };

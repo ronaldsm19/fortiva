@@ -1,9 +1,10 @@
 import type { Request, Response } from 'express';
 import { categoriesService } from './categories.service';
+import { rangeFromQuery } from '@/lib/dates';
 
 export const categoriesController = {
   async list(req: Request, res: Response) {
-    res.json({ data: await categoriesService.list(req.accountId!) });
+    res.json({ data: await categoriesService.list(req.accountId!, rangeFromQuery(req.query)) });
   },
   async create(req: Request, res: Response) {
     res.status(201).json({ data: await categoriesService.create(req.accountId!, req.body) });
