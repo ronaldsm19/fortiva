@@ -23,7 +23,7 @@ export interface FortivaService {
   deleteMovement(id: string): Promise<void>;
 
   // Categorías
-  listCategories(): Promise<{ system: Category[]; custom: Category[] }>;
+  listCategories(month?: number, year?: number): Promise<{ system: Category[]; custom: Category[] }>;
   createCategory(input: Omit<Category, 'id' | 'kind'>): Promise<Category>;
   updateCategory(id: string, input: Partial<Omit<Category, 'id' | 'kind'>>): Promise<Category>;
   deleteCategory(id: string): Promise<void>;

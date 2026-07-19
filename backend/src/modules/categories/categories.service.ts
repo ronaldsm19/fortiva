@@ -4,11 +4,14 @@ import { centsToUsd, usdToCents } from '@/lib/present';
 import { AppError } from '@/lib/AppError';
 import type { CreateCategoryInput, UpdateCategoryInput } from './categories.schemas';
 
-/** Suma de gastos por categoría (para la barra "gastado de presupuesto"). */
-async function spentByCategory(accountId: string): Promise<Map<string, number>> {
+/** Suma de gastos por categoría (para la barra "gastado de presupuesto"). Filtra por el
+ * rango de fecha (mes seleccionado) si se pasa; el presupuesto es mensual. */
+async function spentByCategory(accountId: string, range?: { gte: Date; lt: Date }): Promise<Map<string, number>> {
+  const where: Prisma.MovementWhereInput = { accountId, type: 'expense' };
+  if (range) where.occurredOn = range;
   const grouped = await prisma.movement.groupBy({
     by: ['categoryId'],
-    where: { accountId, type: 'expense' },
+    where,
     _sum: { amountCents: true },
   });
   const map = new Map<string, number>();
@@ -29,10 +32,10 @@ const mapCategory = (c: Category, spentCents = 0) => ({
 });
 
 export const categoriesService = {
-  async list(accountId: string) {
+  async list(accountId: string, range?: { gte: Date; lt: Date }) {
     const [rows, spent] = await Promise.all([
       prisma.category.findMany({ where: { accountId }, orderBy: { createdAt: 'asc' } }),
-      spentByCategory(accountId),
+      spentByCategory(accountId, range),
     ]);
     const mapped = rows.map((c) => mapCategory(c, spent.get(c.id) ?? 0));
     return {

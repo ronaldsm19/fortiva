@@ -3,23 +3,26 @@ import { Plus } from 'lucide-react';
 import { CategoryCard } from '@/components/CategoryCard';
 import { CategoryModal } from '@/modals/CategoryModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { useMonth } from '@/context/MonthContext';
 import { service } from '@/services';
 import type { Category } from '@/services/types';
 
 export function Categorias() {
+  const { monthIdx, year } = useMonth();
   const [system, setSystem] = useState<Category[]>([]);
   const [custom, setCustom] = useState<Category[]>([]);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [toDelete, setToDelete] = useState<Category | null>(null);
 
+  // El "gastado" refleja el mes seleccionado (el presupuesto es mensual).
   const load = () => {
-    service.listCategories().then(({ system, custom }) => {
+    service.listCategories(monthIdx, year).then(({ system, custom }) => {
       setSystem(system);
       setCustom(custom);
     });
   };
-  useEffect(load, []);
+  useEffect(load, [monthIdx, year]);
 
   const openNew = () => {
     setEditing(null);
