@@ -9,10 +9,18 @@ import { generateTempPassword, hashPassword } from '@/lib/hash';
 import { invitePartnerEmailHtml, sendMail } from '@/lib/email';
 import { env } from '@/config/env';
 
-/** Total de gastos compartidos del mes (para la vista previa de reparto). */
+/** Total de gastos compartidos del MES ACTUAL (para la vista previa de reparto). */
 async function sharedExpenseTotal(accountId: string): Promise<number> {
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   const agg = await prisma.movement.aggregate({
-    where: { accountId, type: 'expense', scope: 'shared' },
+    where: {
+      accountId,
+      type: 'expense',
+      scope: 'shared',
+      occurredOn: { gte: monthStart, lt: monthEnd },
+    },
     _sum: { amountCents: true },
   });
   return centsToUsd(agg._sum.amountCents ?? 0);
