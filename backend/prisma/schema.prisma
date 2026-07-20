@@ -90,7 +90,7 @@ model Account {
   coupleMode   Boolean       @default(false) @map("couple_mode")
   splitMode    SplitMode     @default(fifty) @map("split_mode")
   splitP1Pct   Int           @default(50) @map("split_p1_pct")
-  currencyPref Currency      @default(USD) @map("currency_pref")
+  currencyPref Currency      @default(CRC) @map("currency_pref")
   trialEndsAt  DateTime?     @map("trial_ends_at")
   status       AccountStatus @default(trialing)
   createdAt    DateTime      @default(now()) @map("created_at")

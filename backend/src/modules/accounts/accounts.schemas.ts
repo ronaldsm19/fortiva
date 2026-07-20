@@ -11,5 +11,10 @@ export const inviteMemberSchema = z.object({
   email: z.string().email(),
 });
 
+export const currencySchema = z.object({
+  currency: z.enum(['USD', 'CRC']),
+});
+
 export type CoupleInput = z.infer<typeof coupleSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
+export type CurrencyInput = z.infer<typeof currencySchema>;

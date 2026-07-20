@@ -107,6 +107,15 @@ export const accountsService = {
     return coupleView(accountId, acc);
   },
 
+  /** Guarda la moneda preferida de la cuenta (USD/CRC) para que persista entre sesiones. */
+  async updateCurrency(accountId: string, currency: 'USD' | 'CRC') {
+    const acc = await prisma.account.update({
+      where: { id: accountId },
+      data: { currencyPref: currency },
+    });
+    return { currencyPref: acc.currencyPref };
+  },
+
   /**
    * Invita a la pareja: crea su usuario (persona 2, acceso completo al mismo hogar)
    * con contraseña temporal y le envía un correo con los accesos. Solo el admin.
