@@ -124,7 +124,8 @@ export const apiService: FortivaService = {
   updateMovement: (id, input) => http(`/movements/${id}`, { method: 'PATCH', body: JSON.stringify(movementPayload(input)) }),
   deleteMovement: (id) => http(`/movements/${id}`, { method: 'DELETE' }),
 
-  listCategories: (month, year) => http(`/categories${mq(month, year)}`),
+  listCategories: (month, year) =>
+    http(`/categories${month != null && year != null ? `?month=${month}&year=${year}` : ''}`),
   createCategory: (input) =>
     http('/categories', { method: 'POST', body: JSON.stringify({ name: input.name, icon: input.icon, color: input.color, budget: input.budget }) }),
   updateCategory: (id, input) =>
