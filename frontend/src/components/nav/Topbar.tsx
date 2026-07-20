@@ -1,6 +1,5 @@
 import { Menu } from 'lucide-react';
 import { MonthSelector } from '../MonthSelector';
-import { CurrencyToggle } from '../CurrencyToggle';
 import { ThemeToggle } from '../ThemeToggle';
 import { useAuth } from '@/context/AuthContext';
 
@@ -27,9 +26,6 @@ export function Topbar({ title, onOpenMenu }: Props) {
 
         <div className="flex items-center gap-2.5">
           <MonthSelector />
-          <div className="hidden md:block">
-            <CurrencyToggle />
-          </div>
           <ThemeToggle />
           <div
             className="grid h-9 w-9 place-items-center rounded-full text-[13px] font-bold text-white"
