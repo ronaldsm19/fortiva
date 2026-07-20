@@ -1,6 +1,8 @@
 import { http } from './http';
+import type { Currency } from '@/lib/format';
 
 const mode = import.meta.env.VITE_API_MODE ?? 'mock';
+const CURRENCY_KEY = 'fortiva.currency';
 
 export interface Member {
   id: string;
@@ -39,5 +41,21 @@ export const accountApi = {
 
   invitePartner(input: { fullName: string; email: string }): Promise<InviteResult> {
     return http('/account/members', { method: 'POST', body: JSON.stringify(input) });
+  },
+
+  /** Moneda preferida guardada (por defecto colones). En api viene de la cuenta; en mock, de localStorage. */
+  async getCurrency(): Promise<Currency> {
+    if (mode !== 'api') return (localStorage.getItem(CURRENCY_KEY) as Currency) || 'CRC';
+    const acc = await http<{ currencyPref: Currency }>('/account');
+    return acc.currencyPref ?? 'CRC';
+  },
+
+  /** Persiste la moneda preferida de la cuenta. */
+  async setCurrency(currency: Currency): Promise<void> {
+    if (mode !== 'api') {
+      localStorage.setItem(CURRENCY_KEY, currency);
+      return;
+    }
+    await http('/account/currency', { method: 'PATCH', body: JSON.stringify({ currency }) });
   },
 };

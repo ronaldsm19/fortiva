@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { accountsController } from './accounts.controller';
-import { coupleSchema, inviteMemberSchema } from './accounts.schemas';
+import { coupleSchema, currencySchema, inviteMemberSchema } from './accounts.schemas';
 import { validate } from '@/middlewares/validate';
 import { requireAuth } from '@/middlewares/auth.middleware';
 import { resolveTenant } from '@/middlewares/tenant.middleware';
@@ -23,4 +23,9 @@ accountsRoutes.patch(
   '/account/couple',
   validate(coupleSchema),
   asyncHandler(accountsController.updateCouple),
+);
+accountsRoutes.patch(
+  '/account/currency',
+  validate(currencySchema),
+  asyncHandler(accountsController.updateCurrency),
 );

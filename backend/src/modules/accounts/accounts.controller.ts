@@ -14,6 +14,9 @@ export const accountsController = {
   async updateCouple(req: Request, res: Response) {
     res.json({ data: await accountsService.updateCouple(req.accountId!, req.body) });
   },
+  async updateCurrency(req: Request, res: Response) {
+    res.json({ data: await accountsService.updateCurrency(req.accountId!, req.body.currency) });
+  },
   async invite(req: Request, res: Response) {
     const result = await accountsService.invitePartner(
       req.accountId!,
