@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Plus, ArrowLeftRight } from 'lucide-react';
+import { Download, Plus, ArrowLeftRight, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
-import { TransactionRow } from '@/components/TransactionRow';
 import { CategoryGroup } from '@/components/CategoryGroup';
 import { EmptyState } from '@/components/EmptyState';
 import { MovementModal } from '@/modals/MovementModal';
@@ -139,7 +138,7 @@ export function Movimientos() {
       )}
 
       {/* Layout a un costado: resumen + ingresos a la izquierda, cards de categoría a la derecha */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[330px_1fr] lg:items-start">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[380px_1fr] lg:items-start">
         {/* Columna lateral */}
         <div className="flex flex-col gap-4 lg:sticky lg:top-4">
           <Card>
@@ -167,15 +166,36 @@ export function Movimientos() {
             {income.length === 0 ? (
               <p className="px-1 py-4 text-center text-[12.5px] text-text-3">Sin ingresos este mes</p>
             ) : (
-              income.map((m) => (
-                <TransactionRow key={m.id} m={m} onEdit={openEdit} onDelete={setToDelete} />
-              ))
+              income.map((m) => {
+                const cur = m.currency ?? 'USD';
+                const amt = cur === 'CRC' ? (m.amountCrc ?? 0) : m.amount;
+                return (
+                  <div key={m.id} className="flex items-center gap-2.5 border-b border-border px-1 py-2.5 last:border-0">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-pos-weak text-pos">
+                      <Icon name={m.icon} size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13.5px] font-bold">{m.desc}</div>
+                      <div className="truncate text-[11.5px] text-text-3">
+                        {m.date}{m.account ? ` · ${m.account}` : ''}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="fnum text-[13.5px] font-extrabold text-pos">+ {money(amt, cur)}</span>
+                      <div className="flex gap-0.5">
+                        <button onClick={() => openEdit(m)} className="grid h-6 w-6 place-items-center rounded text-text-3 hover:bg-surface-2 hover:text-text" aria-label="Editar"><Pencil size={12} /></button>
+                        <button onClick={() => setToDelete(m)} className="grid h-6 w-6 place-items-center rounded text-text-3 hover:bg-neg-weak hover:text-neg" aria-label="Eliminar"><Trash2 size={12} /></button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </Card>
         </div>
 
-        {/* Columna principal: cards por categoría */}
-        <div className="flex flex-col gap-3">
+        {/* Columna principal: cards por categoría (2 columnas en pantallas anchas) */}
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 xl:items-start">
           {groups.map((g) => (
             <CategoryGroup
               key={g.key}
@@ -189,7 +209,9 @@ export function Movimientos() {
             />
           ))}
           {expenses.length === 0 && (
-            <EmptyState icon={ArrowLeftRight} title="Sin gastos este mes" text="Agrega tu primer gasto con “Agregar”." />
+            <div className="xl:col-span-2">
+              <EmptyState icon={ArrowLeftRight} title="Sin gastos este mes" text="Agrega tu primer gasto con “Agregar”." />
+            </div>
           )}
         </div>
       </div>
