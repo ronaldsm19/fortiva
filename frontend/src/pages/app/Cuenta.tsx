@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Coins } from 'lucide-react';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { PasswordInput } from '@/components/PasswordInput';
 import { Badge } from '@/components/Badge';
 import { useAuth } from '@/context/AuthContext';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export function Cuenta() {
   const { user, changePassword } = useAuth();
+  const { currency, setCurrency } = useCurrency();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -64,6 +66,41 @@ export function Cuenta() {
               Prueba: {user.trialDaysLeft} días
             </Badge>
           )}
+        </div>
+      </Card>
+
+      {/* Moneda */}
+      <Card>
+        <div className="mb-4 flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-[11px] bg-accent-weak text-accent">
+            <Coins size={19} />
+          </div>
+          <div>
+            <h2 className="text-[16px] font-extrabold tracking-tight">Moneda</h2>
+            <p className="text-[13px] text-text-3">En qué moneda ves tus montos. Se guarda en tu cuenta.</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          {([
+            { value: 'CRC', label: '₡ Colones', sub: 'CRC' },
+            { value: 'USD', label: '$ Dólares', sub: 'USD' },
+          ] as const).map((o) => {
+            const active = currency === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => setCurrency(o.value)}
+                aria-pressed={active}
+                className={`flex-1 rounded-input border px-4 py-3 text-left transition-colors ${
+                  active ? 'border-accent bg-accent-weak' : 'border-border bg-surface hover:border-border-strong'
+                }`}
+              >
+                <div className={`text-[15px] font-bold ${active ? 'text-accent' : 'text-text'}`}>{o.label}</div>
+                <div className="text-[12px] text-text-3">{o.sub}</div>
+              </button>
+            );
+          })}
         </div>
       </Card>
 
