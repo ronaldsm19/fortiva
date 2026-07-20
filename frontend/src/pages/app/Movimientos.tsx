@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Plus, ArrowLeftRight, Pencil, Trash2 } from 'lucide-react';
+import { Download, Plus, ArrowLeftRight, Pencil, Trash2, Scale } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
@@ -13,7 +13,7 @@ import { useHousehold } from '@/context/HouseholdContext';
 import { useMonth } from '@/context/MonthContext';
 import { service } from '@/services';
 import { downloadFile } from '@/services/http';
-import type { Category, Movement } from '@/services/types';
+import type { Category, CoupleConfig, Movement } from '@/services/types';
 
 type Filter = 'todos' | 'ana' | 'luis' | 'pareja';
 const tabs: { key: Filter; label: string }[] = [
@@ -30,25 +30,34 @@ const chip = (active: boolean) =>
 
 export function Movimientos() {
   const { rate } = useCurrency();
-  const { ownerLabel } = useHousehold();
+  const { ownerLabel, p1Name, p2Name } = useHousehold();
   const { monthIdx, year } = useMonth();
   const [filter, setFilter] = useState<Filter>('todos');
   const [movements, setMovements] = useState<Movement[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
+  const [couple, setCouple] = useState<CoupleConfig | null>(null);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Movement | null>(null);
   const [toDelete, setToDelete] = useState<Movement | null>(null);
   const [exporting, setExporting] = useState(false);
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
 
+  const isCouple = filter === 'pareja';
+
   const load = () => {
-    service.listMovements(filter, monthIdx, year).then(setMovements);
+    // En "Pareja" cargamos 'todos' para sumar los ingresos de ambos (los salarios son individuales);
+    // luego mostramos solo los ingresos + los gastos compartidos (owner Pareja).
+    service.listMovements(isCouple ? 'todos' : filter, monthIdx, year).then(setMovements);
   };
   useEffect(load, [filter, monthIdx, year]);
   // Categorías (para el color y el orden de las cards); no depende del mes para este uso.
   useEffect(() => {
     service.listCategories().then(({ system, custom }) => setCats([...system, ...custom]));
   }, []);
+  // Config de pareja (para el % de reparto) solo cuando se ve la vista de Pareja.
+  useEffect(() => {
+    if (isCouple) service.getCoupleConfig().then(setCouple).catch(() => setCouple(null));
+  }, [isCouple]);
 
   const openEdit = (m: Movement) => { setEditing(m); setModal(true); };
 
@@ -67,14 +76,19 @@ export function Movimientos() {
     }
   };
 
+  // En "Pareja" la vista es la del hogar: ingresos de AMBOS + gastos COMPARTIDOS (owner Pareja).
+  const scoped = useMemo(
+    () => (isCouple ? movements.filter((m) => m.type === 'income' || m.owner === 'Pareja') : movements),
+    [movements, isCouple],
+  );
   // Cuentas / medios de pago presentes (para filtrar por BAC, etc.).
   const accounts = useMemo(
-    () => [...new Set(movements.map((m) => m.account).filter((a): a is string => !!a))].sort(),
-    [movements],
+    () => [...new Set(scoped.map((m) => m.account).filter((a): a is string => !!a))].sort(),
+    [scoped],
   );
   const visible = useMemo(
-    () => (accountFilter ? movements.filter((m) => m.account === accountFilter) : movements),
-    [movements, accountFilter],
+    () => (accountFilter ? scoped.filter((m) => m.account === accountFilter) : scoped),
+    [scoped, accountFilter],
   );
 
   const income = useMemo(() => visible.filter((m) => m.type === 'income'), [visible]);
@@ -157,6 +171,32 @@ export function Movimientos() {
               </div>
             </div>
           </Card>
+
+          {isCouple && couple && (
+            <Card>
+              <div className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
+                <span className="grid h-6 w-6 place-items-center rounded-md bg-accent-weak text-accent"><Scale size={13} /></span>
+                Reparto de gastos compartidos
+              </div>
+              <div className="mb-3 flex h-2.5 overflow-hidden rounded-full">
+                <div style={{ width: `${couple.p1}%`, background: 'var(--accent)' }} />
+                <div style={{ width: `${100 - couple.p1}%`, background: 'var(--pos)' }} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between rounded-input border border-border px-3 py-2.5">
+                  <span className="text-[13px] font-semibold">{p1Name} · {couple.p1}%</span>
+                  <span className="fnum text-[15px] font-extrabold text-accent">{money(Math.round((totals.outs * couple.p1) / 100), 'CRC')}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-input border border-border px-3 py-2.5">
+                  <span className="text-[13px] font-semibold">{p2Name ?? 'Pareja'} · {100 - couple.p1}%</span>
+                  <span className="fnum text-[15px] font-extrabold text-pos">{money(Math.round((totals.outs * (100 - couple.p1)) / 100), 'CRC')}</span>
+                </div>
+              </div>
+              <p className="mt-2.5 text-[11.5px] text-text-3">
+                De los {money(totals.outs, 'CRC')} de gastos compartidos, según el % de Pareja / Familia.
+              </p>
+            </Card>
+          )}
 
           <Card pad="p-3">
             <div className="mb-1 flex items-center gap-2 px-1 py-1 text-[13.5px] font-bold">
